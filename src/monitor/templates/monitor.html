@@ -1,0 +1,2655 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>EurekAgent | Agent Monitor</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "tertiary-container": "#e3b6ff",
+        "surface-container-highest": "#323537",
+        "surface-dim": "#111416",
+        primary: "#B39DDB",
+        "inverse-on-surface": "#2e3133",
+        "outline-variant": "#40484c",
+        "on-primary": "#1B0033",
+        "surface-container-low": "#191c1e",
+        surface: "#111416",
+        "on-primary-fixed": "#0d001a",
+        secondary: "#CE93D8",
+        "on-tertiary-container": "#7c19ba",
+        "on-surface-variant": "#c0c8cd",
+        "on-surface": "#e1e2e5",
+        "on-secondary": "#38006b",
+        "on-primary-container": "#4A148C",
+        "on-secondary-container": "#38006b",
+        "error-container": "#93000a",
+        "surface-bright": "#373a3b",
+        "on-error": "#690005",
+        "inverse-primary": "#7B1FA2",
+        outline: "#8a9297",
+        error: "#ffb4ab",
+        "primary-container": "#4A148C",
+        tertiary: "#f4daff",
+        "surface-container-high": "#272a2c",
+        "on-tertiary-fixed": "#2f004c",
+        "on-tertiary": "#4d007a",
+        "primary-fixed": "#E1BEE7",
+        "on-background": "#e1e2e5",
+        "on-error-container": "#ffdad6",
+        "secondary-fixed-dim": "#CE93D8",
+        "surface-container": "#1d2022",
+        "on-tertiary-fixed-variant": "#6e00aa",
+        "secondary-container": "#7B1FA2",
+        "primary-fixed-dim": "#B39DDB",
+        "surface-tint": "#B39DDB",
+        "on-secondary-fixed-variant": "#4A148C",
+        "tertiary-fixed-dim": "#e3b5ff",
+        "inverse-surface": "#e1e2e5",
+        "secondary-fixed": "#F3E5F5",
+        "on-secondary-fixed": "#0d001a",
+        "tertiary-fixed": "#f3daff",
+        "surface-variant": "#323537",
+        "on-primary-fixed-variant": "#4A148C",
+        "surface-container-lowest": "#0c0f10",
+        background: "#111416",
+        ember: "#ff5449",
+        /* Light mode overrides */
+        "lt-surface": "#f8f9fa",
+        "lt-surface2": "#f1f3f5",
+        "lt-bg": "#ffffff",
+        "lt-text": "#212529",
+        "lt-text2": "#495057",
+        "lt-text3": "#868e96",
+        "lt-border": "#dee2e6",
+        "lt-primary": "#7C3AED",
+        "lt-primary-light": "#F3E8FF"
+      },
+      borderRadius: {
+        DEFAULT: "0.125rem",
+        lg: "0.25rem",
+        xl: "0.5rem",
+        full: "0.75rem"
+      },
+      fontFamily: {
+        headline: ["Space Grotesk"],
+        body: ["Inter"],
+        label: ["Inter"],
+        display: "Space Grotesk"
+      }
+    }
+  }
+};
+</script>
+<style>
+/* Material Symbols */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ---- Theme variables ---- */
+:root {
+  --header-bg: #1A1A1B;
+  --sidebar-bg: #242426;
+  --main-bg: #191c1e;
+  --card-bg: #272a2c;
+  --card-bg-hover: #373a3b;
+  --card-bg-alt: #323537;
+  --border-subtle: rgba(64,72,76,0.1);
+  --text-heading: #F2F0F1;
+  --text-muted: #9B9B9B;
+  --code-bg: #1e1e2e;
+  --code-text: #cdd6f4;
+  --code-kw: #cba6f7; --code-str: #a6e3a1; --code-num: #fab387; --code-cm: #6c7086;
+  --user-bg: #272a2c; --user-border: #40484c;
+  --assistant-bg: #272a2c; --assistant-border: #40484c;
+  --tool-bg: #272a2c; --tool-border: #40484c;
+  --thinking-bg: #272a2c; --thinking-border: #40484c;
+  --user-text: #e1e2e5; --assistant-text: #e1e2e5; --tool-text: #c0c8cd; --thinking-text: #e1e2e5;
+  --user-role: #7C3AED; --assistant-role: #B39DDB; --tool-role: #CE93D8; --thinking-role: #CE93D8;
+  --surface-code: #323537;
+  --chart-grid: rgba(255,255,255,0.06); --chart-label: #888;
+  --diff-add-bg: rgba(34,197,94,0.08); --diff-del-bg: rgba(239,68,68,0.08);
+  --hover-bg: rgba(179,157,219,0.06);
+  --green: #22c55e; --red: #ef4444; --orange: #f59e0b;
+  --accent-secondary: #CE93D8;
+  --log-info: #B39DDB; --log-exec: #CE93D8; --log-sync: #A855F7; --log-time: rgba(206,147,216,0.4);
+  --accent: #B39DDB;
+  --accent-dim: rgba(179,157,219,0.25);
+  --accent-glow: rgba(179,157,219,0.4);
+  --scrollbar-track: #1A1A1B; --scrollbar-thumb: #3E3E40;
+  --status-success-bg: rgba(47,158,68,0.25); --status-success-text: #4ade80;
+  --status-error-bg: rgba(255,84,73,0.25); --status-error-text: #f87171;
+  --status-warning-bg: rgba(232,89,12,0.25); --status-warning-text: #fb923c;
+  --badge-on-accent: #1B0033;
+  --nav-active-bg: rgba(62,62,64,0.5);
+  --chart-bar-green: rgba(163,230,53,0.4); --chart-bar-green-border: #a3e635;
+  --chart-bar-amber: rgba(251,191,36,0.4); --chart-bar-amber-border: #fbbf24;
+  --chart-dot-best: #22c55e; --chart-dot-worse: #fca5a5; --chart-dot-muted: #6b7280; --chart-dot-default: #94a3b8;
+  --live-dot: #2f9e44;
+}
+html:not(.dark) {
+  --header-bg: #ffffff;
+  --sidebar-bg: #f6f7f9;
+  --main-bg: #f3f4f6;
+  --card-bg: #ffffff;
+  --card-bg-hover: #eef1f4;
+  --card-bg-alt: #e9ecef;
+  --border-subtle: #d0d7de;
+  --text-heading: #111827;
+  --text-muted: #374151;
+  --code-bg: #f6f8fa;
+  --code-text: #1f2937;
+  --code-kw: #7c3aed; --code-str: #16a34a; --code-num: #c2410c; --code-cm: #9ca3af;
+  --user-bg: #f0ecf4fb; --user-border: #c4b5fd;
+  --assistant-bg: #f0ecf4fb; --assistant-border: #c4b5fd;
+  --tool-bg: #f8f7fc; --tool-border: #d1d5db;
+  --thinking-bg: #f8f7fc; --thinking-border: #d1d5db;
+  --user-text: #111827; --assistant-text: #111827; --tool-text: #374151; --thinking-text: #111827;
+  --user-role: #6d28d9; --assistant-role: #7C3AED; --tool-role: #9333ea; --thinking-role: #9333ea;
+  --surface-code: #eef1f4;
+  --chart-grid: rgba(0,0,0,0.08); --chart-label: #374151;
+  --diff-add-bg: rgba(22,163,74,0.08); --diff-del-bg: rgba(220,38,38,0.08);
+  --hover-bg: rgba(124,58,237,0.08);
+  --green: #16a34a; --red: #dc2626; --orange: #d97706;
+  --log-info: #493aed; --log-exec: #9a49e5; --log-sync: #7024eb; --log-time: rgba(147,51,234,0.4);
+  --accent-secondary: #7C3AED;
+  --accent: #7C3AED;
+  --accent-dim: rgba(124,58,237,0.18);
+  --accent-glow: rgba(124,58,237,0.4);
+  --scrollbar-track: #f1f3f5; --scrollbar-thumb: #adb5bd;
+  --status-success-bg: #dcfce7; --status-success-text: #15803d;
+  --status-error-bg: #fee2e2; --status-error-text: #b91c1c;
+  --status-warning-bg: #ffedd5; --status-warning-text: #c2410c;
+  --badge-on-accent: #fff;
+  --nav-active-bg: rgba(124,58,237,0.18);
+  --chart-bar-green: rgba(163,230,53,0.4); --chart-bar-green-border: #a3e635;
+  --chart-bar-amber: rgba(251,191,36,0.4); --chart-bar-amber-border: #fbbf24;
+  --chart-dot-best: #22c55e; --chart-dot-worse: #fca5a5; --chart-dot-muted: #9ca3af; --chart-dot-default: #cbd5e1;
+  --live-dot: #16a34a;
+}
+
+/* ---- Live indicator ---- */
+.live-dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--live-dot); animation:pulse 1.5s infinite; margin-left:2px; vertical-align:middle; }
+.live-dot.finished { background:var(--text-muted); animation:none; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+.spin { animation:spin 1.5s linear infinite; }
+@keyframes runBounce {
+  0%,100% { transform:translateY(0) scaleX(1); }
+  25% { transform:translateY(-2px) scaleX(0.95); }
+  50% { transform:translateY(0) scaleX(1); }
+  75% { transform:translateY(-1px) scaleX(0.97); }
+}
+@keyframes colorPulse {
+  0%,100% { color:var(--accent); opacity:1; }
+  50% { color:var(--accent-secondary); opacity:0.5; }
+}
+.run-pulse { animation:colorPulse 1.5s ease-in-out infinite; }
+.run-bounce { animation:colorPulse 1.5s ease-in-out infinite; }
+
+/* ---- Status badges ---- */
+.status-badge { font-size:12px; padding:2px 8px; border-radius:999px; font-weight:500; }
+.status-running { background:var(--accent-dim); color:var(--accent); }
+.status-success { background:var(--status-success-bg); color:var(--status-success-text); }
+.status-abort, .status-interrupted, .status-error { background:var(--status-error-bg); color:var(--status-error-text); }
+.status-loop { background:var(--status-warning-bg); color:var(--status-warning-text); }
+
+/* ---- Code blocks ---- */
+.code-block { background:var(--code-bg); color:var(--code-text); padding:10px 14px; border-radius:6px; font-family:'SF Mono','Fira Code',monospace; font-size:12px; overflow-x:auto; margin:6px 0; white-space:pre; }
+.code-block .kw { color:var(--code-kw); }
+.code-block .str { color:var(--code-str); }
+.code-block .num { color:var(--code-num); }
+.code-block .cm { color:var(--code-cm); }
+
+/* ---- Chat Thread ---- */
+.conv-user { padding:10px 14px; margin:8px 0; border-radius:8px; border-left:3px solid var(--user-role); background:var(--user-bg); color:var(--user-text); font-size:14px; }
+.conv-user .conv-role { font-size:11px; font-weight:600; color:var(--user-role); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+.conv-user .conv-text { max-height:120px; overflow:hidden; position:relative; transition:max-height .25s ease; }
+.conv-user .conv-text.collapsed::after { content:''; position:absolute; bottom:0; left:0; right:0; height:40px; background:linear-gradient(transparent, var(--user-bg)); pointer-events:none; }
+.conv-user .conv-text.expanded { max-height:none; }
+.conv-user .conv-text.expanded::after { display:none; }
+.conv-expand-btn { font-size:11px; font-weight:600; color:var(--accent-secondary); cursor:pointer; padding:4px 0; user-select:none; }
+.conv-expand-btn:hover { text-decoration:underline; }
+.conv-assistant { padding:10px 14px; margin:8px 0; border-radius:8px; border-left:3px solid var(--assistant-role); background:var(--assistant-bg); color:var(--assistant-text); font-size:14px; }
+.conv-assistant .conv-role { font-size:11px; font-weight:600; color:var(--assistant-role); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+.conv-text { white-space:pre-wrap; word-break:break-word; line-height:1.5; }
+.conv-text p { margin:4px 0; }
+.conv-image-list { display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; }
+.conv-image-card { display:inline-flex; flex-direction:column; gap:4px; max-width:min(360px, 100%); padding:6px; border:1px solid var(--border-subtle); border-radius:8px; background:var(--card-bg); }
+.conv-image-card img { display:block; max-width:100%; max-height:360px; object-fit:contain; border-radius:6px; background:#fff; }
+.conv-image-caption { font-size:11px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.conv-chip { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:3px 10px; border-radius:999px; cursor:pointer; user-select:none; margin-top:6px; transition:all .15s; }
+.conv-chip:hover { filter:brightness(1.2); }
+.conv-chip-thinking { background:var(--accent-dim); color:var(--accent); }
+.conv-chip-tools { background:var(--accent-dim); color:var(--accent); }
+.conv-tools-list { margin-top:8px; padding-left:4px; border-left:2px solid var(--border-subtle); }
+.conv-tool-row { padding:4px 8px; font-size:12px; border-radius:4px; margin:2px 0; }
+.conv-tool-row:hover { background:var(--hover-bg); }
+.conv-tool-badge { display:inline-block; font-size:10px; font-weight:600; padding:1px 6px; border-radius:4px; margin-right:6px; background:var(--accent); color:var(--badge-on-accent); }
+.conv-tool-preview { color:var(--text-muted); font-size:11px; margin-left:4px; }
+.conv-tool-detail { margin:4px 0 4px 0; }
+.conv-thinking-content { color:var(--text-muted); font-style:italic; white-space:pre-wrap; font-size:13px; padding:6px 0; }
+
+/* ---- Activity Strip ---- */
+.activity-strip { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:8px 12px; background:var(--card-bg-alt); border-radius:6px; margin-bottom:12px; font-size:12px; }
+.activity-chip { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:999px; background:var(--hover-bg); color:var(--text-muted); cursor:pointer; font-weight:500; transition:all .15s; }
+.activity-chip:hover { background:var(--accent-dim); color:var(--accent); }
+.activity-arrow { color:var(--text-muted); opacity:0.4; font-size:10px; }
+.activity-label { font-size:11px; color:var(--text-muted); opacity:0.6; }
+
+/* ---- Collapsible ---- */
+details { margin:4px 0; }
+summary { cursor:pointer; font-size:13px; color:var(--text-muted); padding:4px 0; user-select:none; }
+summary:hover { color:var(--text-heading); }
+details[open] summary { margin-bottom:4px; }
+
+/* ---- Tab bar ---- */
+.tab-bar { display:flex; gap:0; border-bottom:1px solid var(--border-subtle); margin-bottom:12px; }
+.tab-btn { padding:6px 12px; font-size:12px; border:none; background:none; cursor:pointer; color:var(--text-muted); border-bottom:2px solid transparent; }
+.tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+.tab-content { display:none; }
+.tab-content.active { display:block; color:var(--text-muted); }
+
+/* ---- Sub-agent ---- */
+.subagent-section { border-left:3px solid var(--accent); padding-left:12px; margin:8px 0; }
+.subagent-label { font-size:12px; font-weight:600; color:var(--accent); margin-bottom:4px; }
+
+/* ---- Config grid ---- */
+.config-grid { display:grid; grid-template-columns:140px 1fr; gap:4px 12px; font-size:13px; }
+.config-grid dt { color:var(--text-muted); font-weight:500; }
+.config-grid dd { color:var(--text-heading); }
+
+/* ---- Approach card expand ---- */
+.approach-card-body { display:none; }
+.approach-card.expanded .approach-card-body { display:block; }
+
+/* ---- Sidebar active state ---- */
+.nav-link.active { color:var(--accent) !important; font-weight:bold; background:var(--nav-active-bg); border-radius:0.125rem; transform:scale(1.05); }
+
+/* ---- Mobile sidebar ---- */
+@media (max-width: 768px) {
+  #sidebar { display:none; position:fixed; left:0; top:72px; z-index:200; width:260px; box-shadow:4px 0 12px rgba(0,0,0,0.3); }
+  #sidebar.open { display:flex; }
+}
+
+/* ---- Results section ---- */
+.evo-card { background:var(--card-bg); border:1px solid var(--border-subtle); border-radius:0.5rem; padding:1rem 1.25rem; margin-top:1rem; }
+.evo-card-header { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem; }
+.evo-card-title { font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:0.95rem; color:var(--text-heading); }
+.evo-card-summary { font-size:0.88rem; color:var(--text-muted); line-height:1.6; }
+.evo-card-agents { margin-top:0.6rem; display:flex; flex-wrap:wrap; gap:0.5rem; }
+.evo-badge { display:inline-block; font-size:0.72rem; font-weight:600; padding:0.15rem 0.5rem; border-radius:999px; }
+.evo-badge.up { background:var(--diff-add-bg); color:var(--green); }
+.evo-badge.fail { background:var(--diff-del-bg); color:var(--red); }
+.evo-badge.neutral { background:var(--hover-bg); color:var(--text-muted); }
+.evo-agent-item { display:inline-flex; align-items:center; gap:0.3rem; font-size:0.78rem; color:var(--text-muted); }
+.evo-dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+.evo-controls { display:flex; align-items:center; justify-content:center; gap:1rem; }
+.evo-controls-row { display:flex; gap:1.25rem; align-items:center; justify-content:center; margin-top:0.75rem; }
+.evo-controls button { background:var(--card-bg); border:1px solid var(--border-subtle); border-radius:0.375rem; padding:0.4rem 0.9rem; font-size:0.82rem; color:var(--text-muted); cursor:pointer; transition:all .2s; }
+.evo-controls button:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
+.evo-controls button:disabled { opacity:0.35; cursor:default; }
+.evo-step-label { font-family:'Space Grotesk'; font-size:0.88rem; font-weight:500; min-width:120px; text-align:center; color:var(--text-heading); }
+.evo-leaderboard { min-width:180px; max-width:200px; flex-shrink:0; }
+.evo-lb-title { font-family:'Space Grotesk'; font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem; padding-bottom:0.3rem; border-bottom:1px solid var(--border-subtle); }
+.evo-lb-item { display:flex; justify-content:space-between; align-items:center; padding:0.3rem 0.4rem; border-radius:0.25rem; cursor:pointer; font-size:0.78rem; transition:background .15s; }
+.evo-lb-item:hover { background:var(--hover-bg); }
+.evo-lb-item.active { background:var(--hover-bg); }
+.evo-lb-name { color:var(--text-muted); }
+.evo-lb-rate { color:var(--text-muted); font-variant-numeric:tabular-nums; }
+.evo-hover-diff { width:300px; flex-shrink:0; font-size:0.78rem; padding:0.5rem; height:340px; overflow-y:auto; }
+.evo-diff-agent { font-weight:600; color:var(--text-heading); }
+.evo-diff-line { padding:0.12rem 0.3rem; border-radius:2px; margin:0.1rem 0; font-family:'Fira Code',monospace; font-size:0.72rem; white-space:pre-wrap; word-break:break-all; }
+.evo-diff-add { background:var(--diff-add-bg); color:var(--green); }
+.evo-diff-del { background:var(--diff-del-bg); color:var(--red); }
+.evo-chart-row { display:flex; gap:1.25rem; align-items:flex-start; justify-content:center; }
+.evo-chart-wrap { flex:1; min-width:0; background:var(--card-bg); border:1px solid var(--border-subtle); border-radius:0.5rem; padding:0.75rem; overflow:hidden; }
+.evo-chart-wrap canvas { display:block; width:100% !important; height:320px !important; cursor:default; }
+@media (max-width:900px) {
+  .evo-chart-row { flex-direction:column; }
+  .evo-leaderboard, .evo-hover-diff { max-width:100%; min-width:0; }
+}
+</style>
+</head>
+
+<body class="bg-surface text-on-surface font-body selection:bg-primary/30">
+
+<!-- TopNavBar -->
+<header class="w-full top-0 sticky flex items-center px-4 md:px-6 py-3 z-50" style="background:var(--header-bg); box-shadow:0px 15px 40px var(--hover-bg);">
+<div class="flex items-center gap-2 md:gap-4">
+  <button class="md:hidden material-symbols-outlined text-on-surface" onclick="toggleSidebar()">menu</button>
+  <h1 class="text-xl md:text-2xl font-bold tracking-tighter font-['Space_Grotesk']" style="color:var(--text-heading)">EurekAgent</h1>
+  <span class="font-mono text-xs hidden sm:inline" style="color:var(--accent)" id="header-run-id"></span>
+  <span class="status-badge" id="header-status"></span>
+  <span class="live-dot" id="live-indicator" title="Pipeline running"></span>
+  <span class="snapshot-badge" id="snapshot-badge" style="display:none;font-size:10px;padding:1px 6px;border-radius:4px;background:var(--card);color:var(--text-muted);border:1px solid rgba(255,255,255,0.1)">SNAPSHOT</span>
+</div>
+<span class="hidden md:block w-2"></span>
+<nav class="hidden md:flex gap-5 items-center border-l pl-5" style="border-color:rgba(64,72,76,0.3)">
+  <div class="flex flex-col">
+    <span class="text-[10px] uppercase tracking-widest font-headline leading-none mb-0.5" style="color:var(--accent)">API Cost</span>
+    <div class="flex gap-3">
+      <span class="font-mono text-xs" style="color:var(--accent)" id="token-usage">Usage: --</span>
+      <span class="font-mono text-xs" style="color:var(--text-muted)" id="token-limit">Limit: --</span>
+    </div>
+  </div>
+  <div class="flex flex-col border-l pl-5" style="border-color:rgba(64,72,76,0.2)">
+    <span class="text-[10px] uppercase tracking-widest font-headline leading-none mb-0.5" style="color:var(--accent-secondary)">Time</span>
+    <div class="flex gap-3">
+      <span class="font-mono text-xs" style="color:var(--accent-secondary)" id="time-uptime">Uptime: --</span>
+      <span class="font-mono text-xs" style="color:var(--text-muted)" id="time-limit">Limit: --</span>
+    </div>
+  </div>
+</nav>
+<div class="flex items-center gap-3 ml-auto">
+  <div class="hidden md:flex flex-col items-end" style="color:var(--accent)">
+    <span class="text-[10px] uppercase tracking-widest font-headline leading-none mb-0.5">Progress</span>
+    <div class="flex items-center gap-2">
+      <span class="font-mono text-xs" id="loop-current">0</span>
+      <div class="w-32 h-2.5 rounded-full overflow-hidden" style="background:var(--main-bg)">
+        <div class="h-full rounded-full transition-all duration-500" id="loop-progress-bar" style="width:0%; background:linear-gradient(90deg, var(--user-role), var(--accent), var(--accent-secondary)); box-shadow:0 0 8px var(--accent-glow)"></div>
+      </div>
+      <span class="font-mono text-xs" style="color:var(--text-muted)" id="loop-max">/ ? Rounds</span>
+    </div>
+  </div>
+  <button class="material-symbols-outlined hover:text-primary transition-colors" style="color:var(--accent-secondary)" onclick="toggleTheme()" id="theme-btn">dark_mode</button>
+</div>
+</header>
+
+<div class="flex">
+<!-- SideNavBar (dynamic) -->
+<aside id="sidebar" class="min-h-[calc(100vh-72px)] w-64 left-0 sticky top-[72px] flex flex-col py-8 px-4 font-['Space_Grotesk'] font-medium z-40" style="background-color:var(--sidebar-bg)!important">
+</aside>
+
+<!-- Main Content Area -->
+<main id="main-content" class="flex-1 p-4 md:p-8 min-h-screen overflow-x-hidden" style="background:var(--main-bg)">
+  <div class="max-w-7xl mx-auto">
+    <p style="color:var(--text-muted)">Loading...</p>
+  </div>
+</main>
+</div>
+
+<!-- Mobile Bottom NavBar -->
+<footer class="md:hidden fixed bottom-0 left-0 right-0 flex justify-around items-center py-3 z-50" style="background:var(--header-bg); border-top:1px solid rgba(64,72,76,0.1)">
+  <button class="material-symbols-outlined" style="color:var(--accent)" onclick="showSection('overview')">cyclone</button>
+  <button class="material-symbols-outlined" style="color:var(--accent-secondary)" onclick="toggleTheme()">dark_mode</button>
+</footer>
+
+<script>
+const RUN_ID = "{{ run_id }}";
+let RUN = null;
+let CHART = null;
+let TIMELINE = [];
+const PAGE_START = Date.now();
+
+// ========== Theme ==========
+function _updateLogo() {
+  const isDark = document.documentElement.classList.contains('dark');
+  document.querySelectorAll('.logo-img').forEach(img => {
+    img.src = isDark ? '/EurekAgent1.png' : '/EurekAgent1.png';
+  });
+}
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.classList.contains('dark') ? 'light' : 'dark';
+  if (next === 'dark') html.classList.add('dark');
+  else html.classList.remove('dark');
+  document.getElementById('theme-btn').textContent = next === 'dark' ? 'dark_mode' : 'light_mode';
+  try { localStorage.setItem('eurekagent-theme', next); } catch(e) {}
+  _updateLogo();
+}
+(function() {
+  try {
+    const t = localStorage.getItem('eurekagent-theme');
+    if (t === 'light') {
+      document.documentElement.classList.remove('dark');
+      document.getElementById('theme-btn').textContent = 'light_mode';
+    }
+  } catch(e) {}
+  _updateLogo();
+})();
+
+// ========== Sidebar ==========
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+function buildSidebar() {
+  const nav = document.getElementById('sidebar');
+  let html = '';
+
+  // Header
+  html += `<div class="flex items-center gap-3 mb-8 px-2">
+    <img src="/EurekAgent1.png" alt="EurekAgent" class="w-10 h-10 rounded logo-img" style="object-fit:contain"/>
+    <div>
+      <div class="font-bold leading-tight" style="color:var(--text-heading)">EurekAgent</div>
+      <div class="text-xs" style="color:var(--accent-secondary)">Active Rounds</div>
+    </div>
+  </div>`;
+
+  html += '<nav class="flex-1 space-y-1">';
+
+  // Dashboard
+  html += navLink('overview', 'dashboard', 'Dashboard');
+
+  // Pipeline state (shared by Prepare and Loops sections)
+  const isPipelineFinished = ['success','abort','interrupted','error','loop'].includes(RUN.summary.final_status || '');
+  const curLoopIdx = RUN.metadata._current_loop_index || 0;
+  const curStage = RUN.metadata._current_stage || '';
+  const pipelineRunning = !isPipelineFinished;
+
+  // Prepare stage (runs once before any rounds)
+  const hasPrepareData = RUN.loops.some(l => l.prepare_result != null || l.prepare_conversation != null);
+  const isPrepareRunning = curStage === 'prepare' && pipelineRunning;
+  const prepareResult = RUN.loops.find(l => l.prepare_result != null);
+  const prepareDone = prepareResult && prepareResult.prepare_result && prepareResult.prepare_result.status === 'ready';
+  const prepareBad = prepareResult && prepareResult.prepare_result && ['abort','error','interrupted'].includes(prepareResult.prepare_result.status);
+  const prepareIcon = prepareDone
+    ? `<span class="material-symbols-outlined text-sm ml-auto" style="color:var(--green);font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24">check_circle</span>`
+    : prepareBad
+    ? `<span class="material-symbols-outlined text-sm ml-auto" style="color:var(--red);font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24">cancel</span>`
+    : isPrepareRunning || (!prepareResult && pipelineRunning)
+    ? `<span class="material-symbols-outlined run-bounce text-sm ml-auto" style="color:var(--accent)">directions_run</span>`
+    : '';
+  if (hasPrepareData || isPrepareRunning || pipelineRunning) {
+    html += `<a class="nav-link flex items-center gap-3 px-3 py-2 font-mono text-xs cursor-pointer transition-transform duration-200 hover:translate-x-1" style="color:var(--text-muted)" data-section="prepare" onclick="showSection('prepare')">
+      <span class="material-symbols-outlined text-sm">science</span><span>Prepare</span>
+      ${prepareIcon}
+    </a>`;
+  }
+
+  // Loops — include in-progress loops that don't yet have result files
+  // Skip loop 0 if it only has prepare data (no propose/implement) — shown above as "Prepare"
+  // Build the set of loop indices to display
+  const loopIndices = new Set(RUN.loops.filter(l => l.propose_result != null || l.implement_result != null || l.approaches?.length > 0).map(l => l.loop_index));
+  if (pipelineRunning && curLoopIdx > 0) {
+    // Add the current in-progress loop (and any skipped indices up to it)
+    for (let i = 1; i <= curLoopIdx; i++) loopIndices.add(i);
+  }
+  const sortedLoopIndices = [...loopIndices].sort((a, b) => a - b);
+  for (const li of sortedLoopIndices) {
+    const loop = RUN.loops.find(l => l.loop_index === li);
+    const isLast = li === (sortedLoopIndices.length > 0 ? sortedLoopIndices[sortedLoopIndices.length - 1] : 0);
+    // Done only when BOTH propose and implement completed successfully
+    const hasBothResults = loop != null && loop.propose_result != null && loop.implement_result != null;
+    const _badStatuses = ['abort','all_failed','interrupted','error'];
+    const implementRunning = loop != null && loop.implement_result != null && loop.implement_result.status === 'running';
+    const eitherBad = hasBothResults && (loop.propose_result != null && _badStatuses.includes(loop.propose_result.status) || loop.implement_result != null && _badStatuses.includes(loop.implement_result.status));
+    const isLoopDone = hasBothResults && !eitherBad && !implementRunning;
+    const isPipelineAborted = ['abort','interrupted','error'].includes(RUN.summary.final_status || '');
+    const isLoopIncomplete = (!hasBothResults && isPipelineAborted) || eitherBad;
+    const isLoopRunning = (!hasBothResults || implementRunning) && !isPipelineAborted;
+    const statusIcon = isLoopDone
+      ? `<span class="material-symbols-outlined text-sm ml-auto" style="color:var(--green);font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24">check_circle</span>`
+      : isLoopIncomplete
+      ? `<span class="material-symbols-outlined text-sm ml-auto" style="color:var(--red);font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24">cancel</span>`
+      : `<span class="material-symbols-outlined run-bounce text-sm ml-auto" style="color:var(--accent)">directions_run</span>`;
+    const stageLabel = isLoopRunning && li === curLoopIdx ? ` (${curStage})` : '';
+
+    html += `<a class="nav-link loop-parent flex items-center gap-3 px-3 py-2 font-mono text-xs cursor-pointer transition-transform duration-200 hover:translate-x-1${isLast ? ' active' : ''}" style="color:${isLast ? 'var(--accent)' : 'var(--text-muted)'}" data-section="loop-${li}-propose" onclick="showSection('loop-${li}-propose')">
+      <span>Round ${li}${stageLabel}</span>
+      ${statusIcon}
+    </a>`;
+  }
+
+  html += '</nav>';
+
+  nav.innerHTML = html;
+  _updateLogo();
+}
+
+function navLink(section, icon, label) {
+  return `<a class="nav-link flex items-center gap-3 px-3 py-2 font-mono text-xs cursor-pointer transition-transform duration-200 hover:translate-x-1" style="color:var(--text-muted)" onclick="showSection('${section}')" data-section="${section}">
+    <span class="material-symbols-outlined text-sm">${icon}</span><span>${label}</span></a>`;
+}
+
+// ========== Header ==========
+function buildHeader() {
+  const m = RUN.metadata;
+  const s = RUN.summary;
+  document.getElementById('header-run-id').textContent = RUN.run_id;
+  const status = s.final_status || m._pipeline_status || 'running';
+  const badge = document.getElementById('header-status');
+  badge.textContent = status;
+  badge.className = 'status-badge status-' + ({success:'success', abort:'abort', interrupted:'interrupted', error:'abort', loop:'loop'}[status] || 'running');
+
+  // Live indicator
+  const dot = document.getElementById('live-indicator');
+  if (dot) {
+    const isFinished = ['success','abort','interrupted','error','loop'].includes(status);
+    dot.className = isFinished ? 'live-dot finished' : 'live-dot';
+    dot.title = isFinished ? 'Pipeline finished' : 'Pipeline running';
+  }
+
+  // Loop Progress — use _current_loop_index from server if available (covers in-progress loops)
+  const currentLoop = m._current_loop_index || (RUN.loops.length > 0 ? Math.max(...RUN.loops.map(l => l.loop_index)) : 0);
+  const maxLoops = m.max_loops || 0;
+  const loopPct = maxLoops > 0 ? Math.min(100, (currentLoop / maxLoops) * 100) : 0;
+  document.getElementById('loop-current').textContent = currentLoop;
+  document.getElementById('loop-max').textContent = '/ ' + (maxLoops || '?') + ' Rounds';
+  document.getElementById('loop-progress-bar').style.width = loopPct + '%';
+
+  // Token Budget
+  const tokenUsage = m.token_usage != null ? m.token_usage : '--';
+  const tokenLimit = m.cost_limit != null ? m.cost_limit : '--';
+  document.getElementById('token-usage').textContent = 'Usage: ' + tokenUsage;
+  document.getElementById('token-limit').textContent = 'Limit: ' + (typeof tokenLimit === 'number' ? '$' + tokenLimit.toFixed(2) : tokenLimit);
+
+  // Time Budget — use pipeline created_at from metadata (preserved across resume)
+  const createdStr = m.created_at;
+  const pipelineStart = TIMELINE.find(e => e.event === 'pipeline_start');
+  const startTime = createdStr ? new Date(createdStr).getTime() : (pipelineStart ? new Date(pipelineStart.timestamp).getTime() : 0);
+  const uptime = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+  const h = Math.floor(uptime/3600); const min = Math.floor((uptime%3600)/60); const sec = uptime%60;
+  document.getElementById('time-uptime').textContent = startTime ? 'Uptime: ' + String(h).padStart(2,'0') + ':' + String(min).padStart(2,'0') + ':' + String(sec).padStart(2,'0') : 'Uptime: --';
+  const timeLimit = m.time_limit != null ? m.time_limit : '--';
+  document.getElementById('time-limit').textContent = 'Limit: ' + timeLimit;
+}
+
+// ========== Section navigation ==========
+let currentSection = '';
+
+function showSection(id) {
+  currentSection = id;
+  const main = document.getElementById('main-content');
+  let html = '<div class="max-w-7xl mx-auto space-y-8">';
+
+  if (id === 'overview') html += renderOverview();
+  else if (id === 'prepare') html += renderPrepareSection();
+  else if (id.startsWith('loop-')) html += renderLoopSection(id);
+
+  html += '</div>';
+  main.innerHTML = html;
+
+  // Update active nav
+  document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(el => {
+    // For loop items, match if the section belongs to that loop
+    const section = el.getAttribute('data-section') || '';
+    if (section === id) {
+      el.classList.add('active');
+      el.style.color = 'var(--accent)';
+    } else if (section === 'prepare' && id === 'prepare') {
+      el.classList.add('active');
+      el.style.color = 'var(--accent)';
+    } else if (id.startsWith('loop-') && section.startsWith('loop-')) {
+      // Match loop parent when any sub-section of that loop is active
+      const elLoopIdx = section.replace('loop-','').replace('-propose','').replace('-implement','').replace('-prepare','');
+      const idLoopIdx = id.replace('loop-','').replace('-propose','').replace('-implement','').replace('-prepare','');
+      if (elLoopIdx === idLoopIdx) {
+        el.classList.add('active');
+        el.style.color = 'var(--accent)';
+      } else {
+        el.style.color = 'var(--text-muted)';
+      }
+    } else {
+      el.style.color = 'var(--text-muted)';
+    }
+  });
+  // Close mobile sidebar
+  document.getElementById('sidebar').classList.remove('open');
+
+  // Post-render: hide expand btn for short user messages
+  setTimeout(() => { initCollapsibleUserTexts(); }, 0);
+
+  // Post-render for evo chart in dashboard
+  if (id === 'overview') {
+    setTimeout(() => { initResultsCharts(); }, 0);
+  }
+}
+
+// ========== Utilities ==========
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function escAttr(s) {
+  return esc(String(s || '')).replace(/'/g, '&#39;');
+}
+
+function md(text) {
+  if (!text) return '';
+  let h = esc(text);
+  h = h.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => `<div class="code-block">${highlight(code.trim(), lang)}</div>`);
+  h = h.replace(/`([^`]+)`/g, '<code style="background:var(--surface-code);padding:1px 4px;border-radius:3px;font-size:12px">$1</code>');
+  h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  h = h.replace(/^### (.+)$/gm, '<h4 style="font-size:14px;font-weight:600;margin:8px 0 4px">$1</h4>');
+  h = h.replace(/^## (.+)$/gm, '<h3 style="font-size:15px;font-weight:600;margin:10px 0 4px">$1</h3>');
+  h = h.replace(/^# (.+)$/gm, '<h2 style="font-size:17px;font-weight:600;margin:12px 0 4px">$1</h2>');
+  h = h.replace(/^- (.+)$/gm, '<div style="margin-left:16px">\u2022 $1</div>');
+  h = h.replace(/^\d+\. (.+)$/gm, (m, c) => `<div style="margin-left:16px">${m.charAt(0)}. ${c}</div>`);
+  h = h.replace(/\n\n/g, '</p><p>');
+  h = '<p>' + h + '</p>';
+  h = h.replace(/<p><\/p>/g, '');
+  return h;
+}
+
+function highlight(code, lang) {
+  if (!lang || lang === 'json') {
+    try { code = JSON.stringify(JSON.parse(code), null, 2); } catch(e) {}
+  }
+  const tokens = [];
+  let src = code;
+  const patterns = [];
+  if (lang === 'python' || lang === 'py') {
+    patterns.push({re: /#.*$/gm, cls: 'cm'});
+  }
+  patterns.push({re: /(["'])(?:(?!\1)[^\\]|\\.)*?\1/g, cls: 'str'});
+  patterns.push({re: /(?<!\x00)(\d+\.?\d*)(?!\x00)/g, cls: 'num'});
+  for (const p of patterns) {
+    src = src.replace(p.re, (m) => {
+      const idx = tokens.length;
+      tokens.push({cls: p.cls, text: m});
+      return `\x00${idx}\x00`;
+    });
+  }
+  let h = esc(src);
+  if (lang === 'python' || lang === 'py') {
+    h = h.replace(/\b(def|class|import|from|return|if|else|elif|for|while|in|not|and|or|is|None|True|False|try|except|finally|with|as|yield|lambda|pass|break|continue|raise|global|nonlocal|assert|del)\b/g, '<span class="kw">$1</span>');
+  }
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    h = h.replace(`\x00${i}\x00`, `<span class="${tokens[i].cls}">${esc(tokens[i].text)}</span>`);
+  }
+  return h;
+}
+
+function fmtScore(v) {
+  if (v == null) return 'N/A';
+  const abs = Math.abs(v);
+  if (abs >= 1e6) return (v / 1e6).toFixed(2) + 'M';
+  if (abs >= 1e4) return (v / 1e3).toFixed(1) + 'K';
+  if (abs >= 1e3) return v.toFixed(1);
+  if (abs >= 1) return v.toFixed(4);
+  if (abs >= 0.001) return v.toFixed(4);
+  return v.toPrecision(4);
+}
+
+function niceStep(range, targetSteps) {
+  if (range <= 0) return 1;
+  const rough = range / targetSteps;
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const res = rough / mag;
+  let nice;
+  if (res <= 1.5) nice = 1;
+  else if (res <= 3) nice = 2;
+  else if (res <= 7) nice = 5;
+  else nice = 10;
+  return nice * mag;
+}
+
+// ========== Overview ==========
+function _tokenPrice(type, count) {
+  if (count == null) return null;
+  const m = RUN.metadata;
+  const rates = {
+    input: m.input_token_price,
+    cache_creation: m.cache_creation_token_price ?? m.input_token_price,
+    cache_read: m.cache_read_token_price ?? m.input_token_price,
+    output: m.output_token_price,
+  };
+  const rate = rates[type];
+  if (rate == null) return null;
+  return (count / 1000000) * rate;
+}
+function renderOverview() {
+  const m = RUN.metadata;
+  const s = RUN.summary;
+
+  let html = '';
+
+  // Hero grid: Execution Log + Cost Budget
+  html += '<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">';
+
+  // Execution Log
+  html += `<div class="lg:col-span-8 rounded-xl overflow-hidden border flex flex-col" style="background:var(--header-bg); border-color:var(--border-subtle)">
+    <div class="px-6 py-3 flex items-center justify-between flex-shrink-0" style="background:var(--sidebar-bg)">
+      <div class="flex items-center gap-2">
+        <div class="flex gap-1.5">
+          <div class="w-3 h-3 rounded-full" style="background:var(--status-error-text);opacity:0.5"></div>
+          <div class="w-3 h-3 rounded-full" style="background:var(--accent);opacity:0.5"></div>
+          <div class="w-3 h-3 rounded-full" style="background:var(--accent-secondary);opacity:0.5"></div>
+        </div>
+        <span class="ml-4 font-mono text-xs uppercase" style="color:var(--accent-secondary); letter-spacing:0.1em">Execution Log</span>
+      </div>
+      <div class="flex items-center gap-4 text-xs font-mono" style="color:var(--accent);opacity:0.7">
+        <span>Run: ${esc(RUN.run_id)}</span>
+        <span class="status-badge status-${({success:'success', abort:'abort', interrupted:'interrupted', error:'abort', loop:'loop'}[s.final_status] || 'running')}" style="font-size:11px;opacity:1">${esc(s.final_status || 'running')}</span>
+      </div>
+    </div>
+    <div id="exec-log-content" class="p-6 font-mono text-sm overflow-y-auto space-y-2" style="color:var(--text-muted); max-height:400px">
+      ${buildExecutionLog()}
+    </div>
+  </div>`;
+
+  // Cost Budget
+  const inputTokens = m.input_tokens != null ? m.input_tokens : null;
+  const cacheCreation = m.cache_creation_input_tokens != null ? m.cache_creation_input_tokens : null;
+  const cacheRead = m.cache_read_input_tokens != null ? m.cache_read_input_tokens : null;
+  const outputTokens = m.output_tokens != null ? m.output_tokens : null;
+  const currentCost = [_tokenPrice('input',inputTokens),_tokenPrice('cache_creation',cacheCreation),_tokenPrice('cache_read',cacheRead),_tokenPrice('output',outputTokens)].filter(v=>v!=null).reduce((a,b)=>a+b,0);
+  const costLimit = m.cost_limit;
+  const costPct = costLimit != null && costLimit > 0 ? Math.min((currentCost / costLimit) * 100, 100) : null;
+  const costExceeded = costLimit != null && currentCost >= costLimit;
+  const barColor = costExceeded ? 'var(--status-error-text)' : costPct != null && costPct > 80 ? '#FFA726' : 'var(--accent)';
+  const barShadow = costExceeded ? '0 0 12px rgba(239,83,80,0.4)' : costPct != null && costPct > 80 ? '0 0 8px rgba(255,167,38,0.3)' : '0 0 8px rgba(100,181,246,0.3)';
+
+  html += `<div class="lg:col-span-4">
+    <div class="p-6 rounded-xl border h-full flex flex-col" style="background:var(--card-bg-alt); border-color:var(--border-subtle)">
+      <h3 class="font-headline text-lg font-bold mb-6 pl-4" style="color:var(--text-heading); border-left:4px solid var(--accent)">Cost Budget</h3>
+      <div class="flex-1 flex flex-col justify-center space-y-4">
+        <div class="space-y-3">
+          <div class="flex justify-between items-end">
+            <span class="text-xs uppercase tracking-widest font-headline" style="color:var(--accent-secondary)">Current Cost</span>
+            <span class="text-2xl font-bold font-mono" style="color:${costExceeded ? 'var(--status-error-text)' : 'var(--text-heading)'}">$${currentCost.toFixed(2)}</span>
+          </div>
+          ${costLimit != null ? `<div class="h-4 rounded-full overflow-hidden" style="background:var(--main-bg)">
+            <div class="h-full rounded-full" style="background:${barColor}; width:${costPct}%; box-shadow:${barShadow}; transition:width 0.5s ease, background 0.3s ease"></div>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-xs font-mono" style="color:var(--text-muted)">${costPct.toFixed(1)}% used</span>
+            <span class="text-xs font-mono" style="color:var(--text-muted)">Limit: $${costLimit.toFixed(2)}</span>
+          </div>` : `<div class="h-4 rounded-full overflow-hidden" style="background:var(--main-bg)">
+            <div class="h-full rounded-full" style="background:var(--accent); width:100%; box-shadow:0 0 8px rgba(100,181,246,0.3)"></div>
+          </div>
+          <div class="text-xs font-mono" style="color:var(--text-muted)">No cost limit set</div>`}
+        </div>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
+          <div class="flex justify-between"><span class="text-xs" style="color:var(--text-muted)">Input</span><span class="text-xs font-mono font-bold" style="color:var(--text-heading)">${inputTokens != null ? inputTokens.toLocaleString() : 'N/A'}</span></div>
+          <div class="flex justify-between"><span class="text-xs" style="color:var(--text-muted)">Cache Create</span><span class="text-xs font-mono font-bold" style="color:var(--text-heading)">${cacheCreation != null ? cacheCreation.toLocaleString() : 'N/A'}</span></div>
+          <div class="flex justify-between"><span class="text-xs" style="color:var(--text-muted)">Cache Read</span><span class="text-xs font-mono font-bold" style="color:var(--text-heading)">${cacheRead != null ? cacheRead.toLocaleString() : 'N/A'}</span></div>
+          <div class="flex justify-between"><span class="text-xs" style="color:var(--text-muted)">Output</span><span class="text-xs font-mono font-bold" style="color:var(--text-heading)">${outputTokens != null ? outputTokens.toLocaleString() : 'N/A'}</span></div>
+        </div>
+      </div>
+      <div class="mt-auto pt-4 flex gap-3">
+        <div class="flex-1 rounded-lg px-3 py-2" style="background:var(--main-bg); border:1px solid var(--border-subtle)">
+          <div class="text-[10px] uppercase tracking-widest font-headline" style="color:var(--text-muted)">Total Tokens</div>
+          <div class="text-sm font-bold font-mono" style="color:var(--text-heading)">${[inputTokens,cacheCreation,cacheRead,outputTokens].filter(v=>v!=null).reduce((a,b)=>a+b,0).toLocaleString() || 'N/A'}</div>
+        </div>
+        <div class="flex-1 rounded-lg px-3 py-2 text-right" style="background:var(--main-bg); border:1px solid var(--border-subtle)">
+          <div class="text-[10px] uppercase tracking-widest font-headline" style="color:var(--text-muted)">Remaining cost</div>
+          <div class="text-sm font-bold font-mono" style="color:${costExceeded ? 'var(--status-error-text)' : 'var(--accent-secondary)'}">${costLimit != null ? '$' + Math.max(0, costLimit - currentCost).toFixed(2) : 'N/A'}</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  html += '</div>'; // end hero grid
+
+  // Score Chart (interactive evolution chart)
+  html += `<div class="rounded-xl border p-6" style="background:var(--card-bg); border-color:var(--border-subtle)">
+    <h3 class="font-headline text-lg font-bold mb-4" style="color:var(--text-heading)">Score Evolution</h3>
+    <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:0.75rem">Each dot is an approach across loops. Click any dot or use arrow keys to inspect details.</p>
+    <div class="evo-chart-row">
+      <div class="evo-leaderboard" id="evoLeaderboard"></div>
+      <div class="evo-chart-wrap"><canvas id="evoChart" width="900" height="320"></canvas></div>
+      <div class="evo-hover-diff" id="evoHoverDiff"></div>
+    </div>
+    <div class="evo-controls-row">
+      <div style="min-width:180px;max-width:200px;flex-shrink:0"></div>
+      <div class="evo-controls">
+        <button id="evoPrev" onclick="evoStep(-1)" disabled>&larr; Prev</button>
+        <span class="evo-step-label" id="evoLabel">Round 1</span>
+        <button id="evoNext" onclick="evoStep(1)">Next &rarr;</button>
+      </div>
+      <div style="width:300px;flex-shrink:0"></div>
+    </div>
+    <div class="evo-card" id="evoCard"></div>
+  </div>`;
+
+  // Approach Cards (latest loop that has approaches)
+  const latestLoopWithApproaches = [...RUN.loops].reverse().find(l => l.approaches && l.approaches.length > 0);
+  const latestLoop = latestLoopWithApproaches || (RUN.loops.length ? RUN.loops[RUN.loops.length - 1] : null);
+  if (latestLoop && latestLoop.approaches.length) {
+    html += `<div class="space-y-4">
+      <div class="flex items-baseline gap-4">
+        <h2 class="font-headline text-2xl font-bold tracking-tight" style="color:var(--text-heading)">Active Approaches</h2>
+        <span class="font-mono text-xs" style="color:var(--accent-secondary)">Round ${latestLoop.loop_index} Strategy Portfolio</span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">`;
+    for (const approach of latestLoop.approaches) {
+      html += renderApproachCard(approach, latestLoop.loop_index);
+    }
+    html += '</div></div>';
+  }
+
+  return html;
+}
+
+function buildExecutionLog() {
+  let html = '';
+
+  // Use real timeline data if available
+  if (TIMELINE.length > 0) {
+    for (const entry of TIMELINE) {
+      const time = formatISOTime(entry.timestamp);
+      const ev = entry.event;
+
+      if (ev === 'pipeline_start') {
+        html += logLine(time, 'INFO', 'Agent core initialized. Run ID: ' + esc(entry.run_id || RUN.run_id));
+      } else if (ev === 'stage_complete' || ev === 'stage_progress') {
+        const stageLabels = {prepare: 'Prepare', propose: 'Propose', implement: 'Implement'};
+        const stageLabel = stageLabels[entry.stage] || entry.stage;
+        const level = 'EXEC';
+        const statusLabel = entry.status === 'running' ? 'in progress' : esc(entry.status || 'done');
+        html += logLine(time, level, `Round ${entry.loop_index} — ${stageLabel} stage: ${statusLabel}`);
+        if (entry.summary) {
+          html += logLine(time, 'INFO', truncate(entry.summary, 120));
+        }
+      } else if (ev === 'approach_scored') {
+        const scoreStr = entry.score != null ? ` (score: ${fmtScore(entry.score)})` : '';
+        const displayName = entry.name || entry.approach_id;
+        html += logLine(time, 'SYNC', `Approach ${esc(displayName)}${scoreStr} — ${esc(entry.approach_status || 'unknown')}`);
+      } else if (ev === 'pipeline_end') {
+        html += logLine(time, 'INFO', `Pipeline finished: ${esc(entry.final_status)}`);
+      }
+    }
+
+    // If pipeline is still running, infer current activity from last event
+    const isRunning = !['success','abort','interrupted','error','loop'].includes(RUN.summary.final_status || 'running');
+    if (isRunning) {
+      const lastEntry = TIMELINE[TIMELINE.length - 1];
+      const activity = _inferCurrentActivity(lastEntry);
+      html += `<div class="flex gap-4 animate-pulse">
+        <span class="whitespace-nowrap" style="color:var(--log-time)">${formatISOTime(new Date().toISOString())}</span>
+        <span class="font-bold" style="color:var(--log-info)">[INFO]</span>
+        <span style="color:var(--text-heading)">${esc(activity)}</span>
+      </div>`;
+    }
+    return html;
+  }
+
+  // Fallback: estimate timestamps from loop data when timeline is empty
+  const now = new Date();
+  const baseTime = new Date(now.getTime() - (RUN.loops.length * 120000));
+
+  html += logLine(formatTime(baseTime), 'INFO', 'Agent core initialized. Run ID: ' + esc(RUN.run_id));
+
+  // Prepare stage (loop 0)
+  const prepareLoop = RUN.loops.find(l => l.prepare_result != null);
+  if (prepareLoop) {
+    html += logLine(formatTime(new Date(baseTime.getTime() + 10000)), 'EXEC', `Prepare stage: ${esc(prepareLoop.prepare_result.status || 'done')}`);
+  }
+
+  for (const loop of RUN.loops) {
+    const t1 = new Date(baseTime.getTime() + loop.loop_index * 60000);
+    const t2 = new Date(t1.getTime() + 30000);
+
+    if (loop.propose_result) {
+      html += logLine(formatTime(t1), 'EXEC', `Round ${loop.loop_index} — Propose stage: ${esc(loop.propose_result.status || 'done')}`);
+      if (loop.propose_result.summary) {
+        html += logLine(formatTime(new Date(t1.getTime() + 5000)), 'INFO', truncate(loop.propose_result.summary, 120));
+      }
+    }
+    if (loop.implement_result) {
+      const implStatusLabel = loop.implement_result.status === 'running' ? 'in progress' : esc(loop.implement_result.status || 'done');
+      html += logLine(formatTime(t2), 'EXEC', `Round ${loop.loop_index} — Implement stage: ${implStatusLabel}`);
+    }
+    for (const a of loop.approaches) {
+      const ta = new Date(t2.getTime() + 10000);
+      const scoreStr = a.score != null ? ` (score: ${fmtScore(a.score)})` : '';
+      html += logLine(formatTime(ta), 'SYNC', `Approach ${esc(a.name || a.approach_id)}${scoreStr} — ${esc(a.status || 'unknown')}`);
+    }
+  }
+
+  const isRunning = !['success','abort','interrupted','error','loop'].includes(RUN.summary.final_status || 'running');
+  if (isRunning) {
+    // Infer current activity from loop data in fallback mode
+    const lastLoop = RUN.loops.length > 0 ? RUN.loops[RUN.loops.length - 1] : null;
+    let activity = 'Pipeline starting...';
+    if (!lastLoop) {
+      // Check if prepare is running
+      const curStage2 = RUN.metadata._current_stage || '';
+      activity = curStage2 === 'prepare' ? 'Prepare stage in progress...' : 'Propose stage in progress (Round 1)...';
+    } else if (lastLoop.prepare_result && lastLoop.prepare_result.status === 'abort') {
+      activity = 'Prepare stage failed, pipeline stopping...';
+    } else if (lastLoop.propose_result && lastLoop.propose_result.status === 'abort') {
+      activity = `Propose stage failed (Round ${lastLoop.loop_index}), pipeline stopping...`;
+    } else if (!lastLoop.implement_result || lastLoop.implement_result.status === 'running') {
+      activity = `Implement stage in progress (Round ${lastLoop.loop_index})...`;
+    } else {
+      activity = `Propose stage in progress (Round ${lastLoop.loop_index + 1})...`;
+    }
+    html += `<div class="flex gap-4 animate-pulse">
+      <span class="whitespace-nowrap" style="color:var(--log-time)">${formatISOTime(now.toISOString())}</span>
+      <span class="font-bold" style="color:var(--log-info)">[INFO]</span>
+      <span style="color:var(--text-heading)">${esc(activity)}</span>
+    </div>`;
+  } else {
+    html += logLine(formatISOTime(now.toISOString()), 'INFO', `Pipeline finished: ${esc(RUN.summary.final_status)}`);
+  }
+
+  return html;
+}
+
+function _inferCurrentActivity(lastEntry) {
+  if (!lastEntry) return 'Pipeline starting...';
+  const ev = lastEntry.event;
+  if (ev === 'pipeline_start') return 'Prepare stage in progress...';
+  if (ev === 'stage_complete' && lastEntry.stage === 'prepare' && lastEntry.status === 'abort') {
+    return 'Prepare stage failed, pipeline stopping...';
+  }
+  if (ev === 'stage_complete' && lastEntry.stage === 'prepare') {
+    return 'Propose stage in progress (Round 1)...';
+  }
+  if (ev === 'stage_complete' && lastEntry.stage === 'propose' && lastEntry.status === 'abort') {
+    return `Propose stage failed (Round ${lastEntry.loop_index}), pipeline stopping...`;
+  }
+  if (ev === 'stage_complete' && lastEntry.stage === 'propose') {
+    return `Implement stage in progress (Round ${lastEntry.loop_index})...`;
+  }
+  if ((ev === 'stage_complete' || ev === 'stage_progress') && lastEntry.stage === 'implement') {
+    if (lastEntry.status === 'running') {
+      return `Implement stage in progress (Round ${lastEntry.loop_index})...`;
+    }
+    return `Propose stage in progress (Round ${lastEntry.loop_index + 1})...`;
+  }
+  if (ev === 'approach_scored') {
+    // Approach scored but implement might still be running
+    const curStage = RUN.metadata._current_stage || '';
+    const curLoop = RUN.metadata._current_loop_index || 0;
+    if (curStage === 'implement' && lastEntry.loop_index === curLoop) {
+      return `Implement stage in progress (Round ${lastEntry.loop_index})...`;
+    }
+    return `Propose stage in progress (Round ${lastEntry.loop_index + 1})...`;
+  }
+  return 'Processing...';
+}
+
+function logLine(time, level, msg) {
+  const levelColor = level === 'INFO' ? 'var(--log-info)' : level === 'EXEC' ? 'var(--log-exec)' : level === 'SYNC' ? 'var(--log-sync)' : 'var(--text-muted)';
+  return `<div class="flex gap-4">
+    <span class="whitespace-nowrap" style="color:var(--log-time)">${time}</span>
+    <span class="font-bold" style="color:${levelColor}">[${level}]</span>
+    <span>${esc(msg)}</span>
+  </div>`;
+}
+
+function formatTime(d) {
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+}
+
+function formatISOTime(iso) {
+  if (!iso) return '--';
+  try {
+    const d = new Date(iso);
+    const yy = String(d.getFullYear());
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yy}-${mm}-${dd} ${formatTime(d)}`;
+  } catch { return '--'; }
+}
+
+function truncate(s, n) { return s.length > n ? s.substring(0, n) + '...' : s; }
+
+// ========== Score Chart ==========
+// ========== Prepare Section ==========
+function renderPrepareSection() {
+  let html = '';
+  const loop = RUN.loops.find(l => l.prepare_result != null || l.prepare_conversation != null);
+  const isPipelineFinished = ['success','abort','interrupted','error','loop'].includes(RUN.summary.final_status || '');
+  const curStage = RUN.metadata._current_stage || '';
+  const isPrepareRunning = curStage === 'prepare' && !isPipelineFinished;
+
+  // Title
+  html += `<div class="flex items-center gap-4 mb-6">
+    <h2 class="font-headline text-2xl font-bold tracking-tight" style="color:var(--text-heading)">
+      <span class="inline-block px-3 py-1 rounded text-sm font-bold mr-2" style="background:var(--accent-dim); color:var(--accent)">Prepare</span>
+    </h2>
+  </div>`;
+
+  if (!loop && isPrepareRunning) {
+    // Prepare stage in progress, no results yet
+    html += `<div class="rounded-xl border p-8 text-center" style="background:var(--card-bg); border-color:var(--border-subtle)">
+      <span class="material-symbols-outlined run-bounce" style="font-size:48px;color:var(--accent)">science</span>
+      <h3 class="font-headline text-xl font-bold mt-4" style="color:var(--text-heading)">Prepare stage in progress</h3>
+      <p class="mt-2" style="color:var(--text-muted)">Validating problem setup and testing evaluation pipeline...</p>
+    </div>`;
+    return html;
+  }
+
+  if (!loop) {
+    // No prepare data at all
+    html += `<div class="rounded-xl border p-6" style="background:var(--card-bg); border-color:var(--border-subtle); color:var(--text-muted); font-size:13px">
+      No prepare stage data available. This run may have been started without the prepare step.
+    </div>`;
+    return html;
+  }
+
+  // Prepare result
+  const result = loop.prepare_result;
+  if (result) {
+    const statusColor = result.status === 'ready' ? 'var(--green)' : ['abort','error','interrupted'].includes(result.status) ? 'var(--red)' : 'var(--text-muted)';
+    html += `<div class="rounded-xl border p-6 mb-6" style="background:var(--card-bg); border-color:var(--border-subtle)">
+      <dl class="config-grid">
+        <dt>Status</dt><dd><span style="color:${statusColor};font-weight:600">${esc(result.status || '')}</span></dd>
+        ${result.summary ? '<dt>Summary</dt><dd>' + md(result.summary) + '</dd>' : ''}
+      </dl>
+    </div>`;
+  }
+
+  // Prepare summary.md content
+  if (loop.prepare_summary) {
+    html += `<div class="rounded-xl border p-6 mb-6" style="background:var(--card-bg); border-color:var(--border-subtle)">
+      <h3 class="font-headline text-lg font-bold mb-4" style="color:var(--text-heading)">Prepare Summary</h3>
+      <div class="prose-content" style="color:var(--text-body); font-size:13px; line-height:1.6">${md(loop.prepare_summary)}</div>
+    </div>`;
+  }
+
+  // Prepare conversation
+  const conv = loop.prepare_conversation;
+  const hasConv = loop.has_prepare_conversation;
+  if (conv) {
+    html += renderConversation(conv, 'Prepare Session', 'conv-scroll-prepare', 'prepare');
+  } else if (hasConv) {
+    html += `<div id="prepare-conv-loading" class="rounded-xl border p-6" style="background:var(--card-bg); border-color:var(--border-subtle); color:var(--text-muted); font-size:13px">Loading conversation...</div>`;
+    loadConversation('prepare').then(c => {
+      const el = document.getElementById('prepare-conv-loading');
+      if (el && c) { el.outerHTML = renderConversation(c, 'Prepare Session', 'conv-scroll-prepare', 'prepare'); _restoreScrollPos('conv-scroll-prepare'); }
+      else if (el) el.textContent = 'No conversation data found for this stage.';
+    });
+  } else if (!isPrepareRunning) {
+    html += `<div class="rounded-xl border p-6" style="background:var(--card-bg); border-color:var(--border-subtle); color:var(--text-muted); font-size:13px">No conversation data found for this stage. The JSONL session file may not be available on this machine.</div>`;
+  }
+
+  return html;
+}
+
+// ========== Loop Section ==========
+function renderLoopSection(id) {
+  const parts = id.split('-');
+  const loopIdx = parseInt(parts[1]);
+  const stage = parts[2];
+  const loop = RUN.loops.find(l => l.loop_index === loopIdx);
+  if (!loop) {
+    // In-progress loop without result files yet — show placeholder
+    const curStage2 = RUN.metadata._current_stage || 'propose';
+    const stageLabels = {prepare: 'Prepare', propose: 'Propose', implement: 'Implement'};
+    const stageDisplay = stageLabels[curStage2] || 'Propose';
+    return `<div class="rounded-xl border p-8 text-center" style="background:var(--card-bg); border-color:var(--border-subtle)">
+      <span class="material-symbols-outlined run-bounce" style="font-size:48px;color:var(--accent)">directions_run</span>
+      <h3 class="font-headline text-xl font-bold mt-4" style="color:var(--text-heading)">Round ${loopIdx} — ${stageDisplay} stage in progress</h3>
+      <p class="mt-2" style="color:var(--text-muted)">Results will appear here once the stage completes.</p>
+    </div>`;
+  }
+
+  let html = '';
+
+  // Section title with Propose/Implement tabs (and Prepare for loop 0)
+  html += `<div class="flex items-center gap-4 mb-6">
+    <h2 class="font-headline text-2xl font-bold tracking-tight" style="color:var(--text-heading)">
+      <span class="inline-block px-3 py-1 rounded text-sm font-bold mr-2" style="background:var(--accent-dim); color:var(--accent)">Round ${loopIdx}</span>
+    </h2>
+    <div class="flex gap-0" style="border-bottom:2px solid var(--border-subtle)">
+      ${loopIdx === 0 && loop.prepare_result ? `<button class="px-4 py-2 text-sm font-medium cursor-pointer border-none bg-transparent transition-colors" style="color:${stage==='prepare'?'var(--accent)':'var(--text-muted)'}; border-bottom:2px solid ${stage==='prepare'?'var(--accent)':'transparent'}; margin-bottom:-2px" onclick="showSection('prepare')">Prepare</button>` : ''}
+      <button class="px-4 py-2 text-sm font-medium cursor-pointer border-none bg-transparent transition-colors" style="color:${stage==='propose'?'var(--accent)':'var(--text-muted)'}; border-bottom:2px solid ${stage==='propose'?'var(--accent)':'transparent'}; margin-bottom:-2px" onclick="showSection('loop-${loopIdx}-propose')">Propose</button>
+      <button class="px-4 py-2 text-sm font-medium cursor-pointer border-none bg-transparent transition-colors" style="color:${stage==='implement'?'var(--accent)':'var(--text-muted)'}; border-bottom:2px solid ${stage==='implement'?'var(--accent)':'transparent'}; margin-bottom:-2px" onclick="showSection('loop-${loopIdx}-implement')">Implement</button>
+    </div>
+  </div>`;
+
+  // Stage result
+  const result = stage === 'propose' ? loop.propose_result : loop.implement_result;
+  if (result) {
+    const isRunning = result.status === 'running';
+    html += `<div class="rounded-xl border p-6 mb-6" style="background:var(--card-bg); border-color:var(--border-subtle)">
+      <dl class="config-grid">
+        <dt>Status</dt><dd>${isRunning ? '<span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background:var(--accent)"></span><span style="color:var(--accent);font-weight:600">In Progress</span></span>' : esc(result.status || '')}</dd>
+        <dt>Summary</dt><dd>${md(result.summary || (isRunning ? 'Evaluating approaches…' : ''))}</dd>
+        ${result.notes ? '<dt>Notes</dt><dd>' + esc(result.notes) + '</dd>' : ''}
+      </dl>
+    </div>`;
+  }
+
+  // Approaches (implement stage)
+  if (stage === 'implement' && loop.approaches.length) {
+    html += `<div class="space-y-4 mb-6">
+      <h3 class="font-headline text-lg font-bold" style="color:var(--text-heading)">Approaches</h3>`;
+    for (const approach of loop.approaches) {
+      html += renderApproach(approach, loopIdx);
+    }
+    html += '</div>';
+  }
+
+  // Conversation (propose session only; implement details are in approach cards)
+  if (stage === 'propose') {
+    const conv = loop.propose_conversation;
+    const hasConv = loop.has_propose_conversation;
+    if (conv) {
+      html += renderConversation(conv, 'Propose Session', `conv-scroll-loop-${loop.loop_index}-propose`, 'loop_' + loop.loop_index + '_propose');
+    } else if (hasConv) {
+      const convKey = 'loop_' + loop.loop_index + '_propose';
+      html += `<div id="propose-conv-loading-${loop.loop_index}" class="rounded-xl border p-6" style="background:var(--card-bg); border-color:var(--border-subtle); color:var(--text-muted); font-size:13px">Loading conversation...</div>`;
+      loadConversation(convKey).then(c => {
+        const el = document.getElementById('propose-conv-loading-' + loop.loop_index);
+        if (el && c) { el.outerHTML = renderConversation(c, 'Propose Session', `conv-scroll-loop-${loop.loop_index}-propose`, 'loop_' + loop.loop_index + '_propose'); _restoreScrollPos(`conv-scroll-loop-${loop.loop_index}-propose`); }
+        else if (el) el.textContent = 'No conversation data found for this stage.';
+      });
+    } else {
+      html += `<div class="rounded-xl border p-6" style="background:var(--card-bg); border-color:var(--border-subtle); color:var(--text-muted); font-size:13px">No conversation data found for this stage. The JSONL session file may not be available on this machine.</div>`;
+    }
+  }
+
+  return html;
+}
+
+// ========== Conversation rendering ==========
+
+function groupEventsByTurn(events) {
+  const turns = [];
+  let current = null;
+
+  for (const event of events) {
+    const ts = event.timestamp || null;
+    if (event.role === 'user') {
+      if (current) turns.push(current);
+      current = { role: 'user', items: event.content_items, event, timestamp: ts };
+    } else if (event.role === 'assistant') {
+      if (current) turns.push(current);
+      current = { role: 'assistant', items: event.content_items, toolResults: [], event, timestamp: ts };
+    } else if (event.role === 'tool_result') {
+      if (current && current.role === 'assistant') {
+        current.toolResults.push(...event.content_items);
+      } else {
+        // Orphan tool_result without preceding assistant — create a synthetic turn
+        if (current) turns.push(current);
+        current = { role: 'assistant', items: [], toolResults: event.content_items, event, timestamp: ts };
+      }
+    }
+  }
+  if (current) turns.push(current);
+  return turns;
+}
+
+function renderActivityStrip(turns) {
+  if (!turns || turns.length === 0) return '';
+  let html = '<div class="activity-strip">';
+  let first = true;
+
+  for (let i = 0; i < turns.length; i++) {
+    const turn = turns[i];
+    if (!first) html += '<span class="activity-arrow">\u2192</span>';
+    first = false;
+
+    if (turn.role === 'user') {
+      html += `<span class="activity-chip" onclick="scrollToTurn(${i})">prompt</span>`;
+    } else {
+      const textItems = turn.items.filter(it => it.type === 'text');
+      const toolUseItems = turn.items.filter(it => it.type === 'tool_use');
+      const totalTools = toolUseItems.length + turn.toolResults.length;
+
+      if (textItems.length > 0 && totalTools === 0) {
+        html += `<span class="activity-chip" onclick="scrollToTurn(${i})">reply</span>`;
+      } else if (totalTools > 0) {
+        // Group tool names by count
+        const toolCounts = {};
+        for (const it of toolUseItems) {
+          const name = _shortToolName(it.tool_name || '?');
+          toolCounts[name] = (toolCounts[name] || 0) + 1;
+        }
+        for (const it of turn.toolResults) {
+          const name = _shortToolName(it.tool_name || '?');
+          toolCounts[name] = (toolCounts[name] || 0) + 1;
+        }
+        const chips = Object.entries(toolCounts)
+          .map(([name, count]) => count > 1 ? `${name} \u00d7${count}` : name)
+          .join(' ');
+        html += `<span class="activity-chip" onclick="scrollToTurn(${i})">${esc(chips)}</span>`;
+      }
+    }
+  }
+  html += '</div>';
+  return html;
+}
+
+function _shortToolName(name) {
+  if (name.includes('web_search')) return 'Search';
+  if (name === 'Skill') return 'Skill';
+  if (name === 'Agent') return 'Agent';
+  if (name === 'Read') return 'Read';
+  if (name === 'Write') return 'Write';
+  if (name === 'Edit') return 'Edit';
+  if (name === 'Glob') return 'Glob';
+  if (name === 'Grep') return 'Grep';
+  if (name === 'Bash') return 'Bash';
+  if (name === 'TaskCreate') return 'TaskCreate';
+  if (name === 'TaskUpdate') return 'TaskUpdate';
+  if (name.startsWith('mcp__')) return name.split('__').pop().replace(/_/g, ' ');
+  return name;
+}
+
+function scrollToTurn(index) {
+  const el = document.getElementById('conv-turn-' + index);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function toggleUserText(id, btn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const isCollapsed = el.classList.contains('collapsed');
+  if (isCollapsed) {
+    el.classList.remove('collapsed');
+    el.classList.add('expanded');
+    btn.textContent = 'Show less';
+  } else {
+    el.classList.remove('expanded');
+    el.classList.add('collapsed');
+    btn.textContent = 'Show more';
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function initCollapsibleUserTexts() {
+  document.querySelectorAll('.conv-user .conv-text.collapsed').forEach(el => {
+    const btn = el.parentElement.querySelector('.conv-expand-btn');
+    if (!btn) return;
+    if (el.scrollHeight <= 120) {
+      el.classList.remove('collapsed');
+      el.classList.add('expanded');
+      btn.style.display = 'none';
+    }
+  });
+}
+
+function renderToolRow(item, isResult) {
+  if (isResult) {
+    return `<div class="conv-tool-row">
+      <span class="conv-tool-badge">${esc(_shortToolName(item.tool_name || '?'))}</span>
+      <details class="conv-tool-detail" open><summary style="font-size:11px;color:var(--text-muted)">Hide output</summary><div class="code-block" style="font-size:11px;max-height:200px;overflow-y:auto">${highlight(item.text || '', '')}</div></details>
+    </div>`;
+  }
+  return `<div class="conv-tool-row">
+    <span class="conv-tool-badge">${esc(_shortToolName(item.tool_name || '?'))}</span>
+    <details class="conv-tool-detail" open><summary style="font-size:11px;color:var(--text-muted)">Hide input</summary><div class="code-block" style="font-size:11px">${highlight(item.tool_input || '', 'json')}</div></details>
+  </div>`;
+}
+
+function _toolPreview(text, maxLen) {
+  if (!text) return '';
+  const firstLine = text.trim().split('\n')[0] || '';
+  if (firstLine.length <= maxLen) return firstLine;
+  return firstLine.substring(0, maxLen) + '...';
+}
+
+function _toolInputPreview(input, toolName) {
+  if (!input) return '';
+  try {
+    const obj = JSON.parse(input);
+    if (toolName === 'Read' && obj.file_path) return '\u2192 ' + obj.file_path.split('/').pop();
+    if (toolName === 'Write' && obj.file_path) return '\u2192 ' + obj.file_path.split('/').pop();
+    if (toolName === 'Glob' && obj.pattern) return '\u2192 ' + obj.pattern;
+    if (toolName === 'Grep' && obj.pattern) return '\u2192 ' + obj.pattern;
+    if (toolName === 'Bash' && obj.command) return '\u2192 ' + obj.command.substring(0, 60);
+    if (toolName === 'Skill' && obj.skill) return '\u2192 ' + obj.skill;
+    if (toolName === 'Agent' && obj.description) return '\u2192 ' + obj.description.substring(0, 60);
+    if (input.includes('web_search') && obj.search_query) return '\u2192 ' + obj.search_query.substring(0, 60);
+    for (const val of Object.values(obj)) {
+      if (typeof val === 'string' && val.length > 0) return '\u2192 ' + val.substring(0, 60);
+    }
+  } catch(e) {}
+  return _toolPreview(input, 60);
+}
+
+function renderConversation(conv, title, scrollId, key) {
+  if (!conv || !conv.events.length) return '';
+
+  const turns = groupEventsByTurn(conv.events);
+  const totalTools = turns.reduce((sum, t) => sum + (t.role === 'assistant' ? t.items.filter(it => it.type === 'tool_use').length + t.toolResults.length : 0), 0);
+  const msgCount = conv.events.length;
+  const headerTitle = title || (conv.session_name ? 'Session: ' + esc(conv.session_name) : 'Session Log');
+  const headerMeta = `${msgCount} message${msgCount !== 1 ? 's' : ''}${totalTools > 0 ? ', ' + totalTools + ' tool' + (totalTools !== 1 ? 's' : '') : ''}`;
+  const scrollIdAttr = scrollId ? ` id="${scrollId}"` : '';
+  // Keyed conversations opt into incremental refresh: the refresh timer reads
+  // data-conv-key + data-rendered-turns off the scroll container and appends
+  // only newly-arrived turns (see refreshOpenConversations).
+  const convKeyAttr = key ? ` data-conv-key="${esc(key)}" data-rendered-turns="${turns.length}"` : '';
+  const metaIdAttr = scrollId ? ` id="conv-meta-${scrollId}"` : '';
+  if (key) _openConvConvs[key] = conv;  // shared in-memory conv; we append to its events
+
+  let html = `<div class="rounded-xl overflow-hidden border" style="background:var(--header-bg); border-color:var(--border-subtle)">
+    <div class="px-6 py-3 flex items-center justify-between" style="background:var(--sidebar-bg)">
+      <div class="flex items-center gap-2">
+        <div class="flex gap-1.5">
+          <div class="w-3 h-3 rounded-full" style="background:var(--status-error-text);opacity:0.5"></div>
+          <div class="w-3 h-3 rounded-full" style="background:var(--accent);opacity:0.5"></div>
+          <div class="w-3 h-3 rounded-full" style="background:var(--accent-secondary);opacity:0.5"></div>
+        </div>
+        <span class="ml-4 font-mono text-xs uppercase" style="color:var(--accent-secondary); letter-spacing:0.1em">${headerTitle}</span>
+        <span class="font-mono text-xs" style="color:var(--text-muted)"${metaIdAttr}>${esc(headerMeta)}</span>
+      </div>
+    </div>
+    <div class="p-4" style="max-height:600px; overflow-y:auto"${scrollIdAttr}${convKeyAttr}>`;
+
+  // Render turns
+  for (let i = 0; i < turns.length; i++) {
+    html += renderTurnHTML(turns[i], i);
+  }
+
+  html += '</div></div>';
+  return html;
+}
+
+// Render a single conversation turn as HTML. Extracted from renderConversation
+// so the incremental refresher can render just the new/changed turns without
+// rebuilding the whole transcript DOM (which is what made large transcripts lag).
+function renderTurnHTML(turn, i) {
+  let html = `<div id="conv-turn-${i}">`;
+
+  if (turn.role === 'user') {
+    let content = '';
+    let images = [];
+    for (const item of turn.items) {
+      if (item.type === 'text') content += md(item.text);
+      else if (item.type === 'image') images.push(item);
+    }
+    content += renderImages(images);
+    const cId = 'user-text-' + i;
+    const tsLabel = turn.timestamp ? `<span class="font-mono text-[10px] ml-2" style="color:var(--text-muted);opacity:0.7">${formatISOTime(turn.timestamp)}</span>` : '';
+    html += `<div class="conv-user">
+      <div class="conv-role"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px">person</span>User${tsLabel}</div>
+      <div class="conv-text collapsed" id="${cId}">${content}</div>
+      <span class="conv-expand-btn" onclick="toggleUserText('${cId}', this)">Show more</span>
+    </div>`;
+  } else {
+    // Assistant turn
+    const textItems = turn.items.filter(it => it.type === 'text');
+    const thinkingItems = turn.items.filter(it => it.type === 'thinking');
+    const toolUseItems = turn.items.filter(it => it.type === 'tool_use');
+    const totalToolsInTurn = toolUseItems.length + turn.toolResults.length;
+    const tsLabel = turn.timestamp ? `<span class="font-mono text-[10px] ml-2" style="color:var(--text-muted);opacity:0.7">${formatISOTime(turn.timestamp)}</span>` : '';
+
+    html += `<div class="conv-assistant">
+      <div class="conv-role"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px">auto_awesome</span>Assistant${tsLabel}</div>`;
+
+    // Text content (always visible)
+    let textContent = '';
+    for (const item of textItems) {
+      textContent += md(item.text);
+    }
+    textContent += renderImages(turn.items.filter(it => it.type === 'image'));
+    if (textContent) {
+      html += `<div class="conv-text">${textContent}</div>`;
+    }
+
+    // Thinking chip
+    if (thinkingItems.length > 0) {
+      html += `<details><summary class="conv-chip conv-chip-thinking">Thinking...</summary>`;
+      for (const item of thinkingItems) {
+        html += `<div class="conv-thinking-content">${esc(item.text)}</div>`;
+      }
+      html += `</details>`;
+    }
+
+    // Tools chip
+    if (totalToolsInTurn > 0) {
+      html += `<details><summary class="conv-chip conv-chip-tools">${totalToolsInTurn} tool${totalToolsInTurn !== 1 ? 's' : ''} used</summary>`;
+      html += `<div class="conv-tools-list">`;
+      for (const item of toolUseItems) {
+        html += renderToolRow(item, false);
+      }
+      for (const item of turn.toolResults) {
+        html += renderToolRow(item, true);
+      }
+      html += `</div></details>`;
+    }
+
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+function renderImages(images) {
+  if (!images || images.length === 0) return '';
+  let html = '<div class="conv-image-list">';
+  images.forEach((image, idx) => {
+    const src = image.url || '';
+    if (!src) return;
+    const title = image.title || `Image #${idx + 1}`;
+    const media = image.media_type || '';
+    const caption = media ? `${title} · ${media}` : title;
+    html += `<figure class="conv-image-card"><img src="${escAttr(src)}" alt="${escAttr(title)}" loading="lazy"><figcaption class="conv-image-caption">${esc(caption)}</figcaption></figure>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+// ========== Approach rendering (detail view with tabs) ==========
+function renderApproach(approach, loopIdx) {
+  let html = `<div class="approach-card rounded-xl border overflow-hidden" style="background:var(--card-bg); border-color:var(--border-subtle)" id="approach-${approach.approach_id}">`;
+
+  // Header
+  html += `<div class="approach-header flex justify-between items-center cursor-pointer px-6 py-4" style="background:var(--card-bg-alt)" onclick="toggleApproach('${approach.approach_id}')">
+    <div class="flex items-center gap-3">
+      <span class="px-2 py-1 rounded font-mono text-[10px]" style="background:var(--main-bg); color:var(--accent-secondary); border:1px solid var(--border-subtle)">${esc(approach.approach_id)}</span>
+      ${approach.name && approach.name !== approach.approach_id ? `<h4 class="font-headline font-bold" style="color:var(--text-heading)">${esc(approach.name)}</h4>` : ''}
+    </div>
+    <div class="flex items-center gap-4">
+      ${approach.score !== null && approach.score !== undefined ? `<span class="font-mono font-bold" style="color:var(--accent)">${fmtScore(approach.score)}</span>` : ''}
+      <span class="material-symbols-outlined text-sm" style="color:var(--text-muted)">expand_more</span>
+    </div>
+  </div>`;
+
+  // Body (collapsible)
+  html += `<div class="approach-card-body">`;
+  html += `<div class="p-6">`;
+
+  // Scored solution description and initial hypothesis are separate.
+  const solutionDesc = (approach.final_result && approach.final_result.description) || approach.solution_description || approach.description || '';
+  if (solutionDesc) {
+    html += `<div class="mb-4">
+      <div class="text-[10px] uppercase tracking-widest mb-1" style="color:var(--accent-secondary)">Current best solution description</div>
+      <p style="color:var(--text-heading)">${esc(solutionDesc)}</p>
+    </div>`;
+  }
+  if (approach.initial_hypothesis_description) {
+    html += `<details class="mb-4"><summary>Initial approach description</summary>
+      <p style="color:var(--text-muted);font-size:0.85rem">${esc(approach.initial_hypothesis_description)}</p>
+    </details>`;
+  }
+
+  // Tab bar
+  const tabs = [];
+  if (approach.approach_md) tabs.push('initial');
+  const hasConversations = (approach.subagent_conversations && approach.subagent_conversations.length) ||
+                           approach.has_subagent_conversations;
+  if (hasConversations) tabs.push('session');
+  if (approach.has_code_files || (approach.code_files && Object.keys(approach.code_files).length)) tabs.push('code');
+  if (approach.has_experiment_log || approach.experiment_log) tabs.push('log');
+
+  if (tabs.length) {
+    html += '<div class="tab-bar">';
+    for (let i = 0; i < tabs.length; i++) {
+      const tabLabel = tabs[i] === 'initial' ? 'initial hypothesis' : tabs[i];
+      html += `<button class="tab-btn${i===0?' active':''}" onclick="switchTab(this,'${approach.approach_id}','${tabs[i]}')">${tabLabel}</button>`;
+    }
+    html += '</div>';
+
+    for (let i = 0; i < tabs.length; i++) {
+      const tab = tabs[i];
+      html += `<div class="tab-content${i===0?' active':''}" id="tab-${approach.approach_id}-${tab}">`;
+      if (tab === 'initial') html += md(approach.approach_md);
+      else if (tab === 'session') {
+        if (approach.subagent_conversations && approach.subagent_conversations.length) {
+          for (let si = 0; si < approach.subagent_conversations.length; si++) {
+            const sub = approach.subagent_conversations[si];
+            html += renderConversation(sub, 'Session: ' + esc(sub.session_name), `conv-scroll-${approach.approach_id}-${si}`);
+          }
+        } else {
+          html += `<div id="conv-loading-${approach.approach_id}" style="color:var(--text-muted)">Loading session data...</div>`;
+          loadConversation(approach.approach_id).then(conv => {
+            const el = document.getElementById('conv-loading-' + approach.approach_id);
+            if (el && conv) { el.outerHTML = renderConversation(conv, 'Session: ' + esc(conv.session_name), `conv-scroll-${approach.approach_id}-0`, approach.approach_id); _restoreScrollPos(`conv-scroll-${approach.approach_id}-0`); }
+            else if (el) el.textContent = 'No session data available.';
+          });
+        }
+      }
+      else if (tab === 'code') {
+        if (approach.code_files && Object.keys(approach.code_files).length) {
+          for (const [fname, content] of Object.entries(approach.code_files)) {
+            html += `<details style="margin:0.3rem 0"><summary style="font-size:0.72rem;color:var(--text-muted)">${esc(fname)}</summary>`;
+            html += `<pre style="font-size:0.72rem;color:var(--text-muted);white-space:pre-wrap;word-break:break-all">${esc(content)}</pre></details>`;
+          }
+        } else {
+          html += `<div id="code-loading-${approach.approach_id}" style="color:var(--text-muted)">Loading code...</div>`;
+          loadApproachDetail(approach.approach_id).then(detail => {
+            const el = document.getElementById('code-loading-' + approach.approach_id);
+            if (el && detail && detail.code_files) {
+              let codeHtml = '';
+              for (const [fname, content] of Object.entries(detail.code_files)) {
+                codeHtml += `<details style="margin:0.3rem 0"><summary style="font-size:0.72rem;color:var(--text-muted)">${esc(fname)}</summary>`;
+                codeHtml += `<pre style="font-size:0.72rem;color:var(--text-muted);white-space:pre-wrap;word-break:break-all">${esc(content)}</pre></details>`;
+              }
+              el.outerHTML = codeHtml || 'No code files.';
+            } else if (el) el.textContent = 'No code files.';
+          });
+        }
+      }
+      else if (tab === 'log') {
+        if (approach.experiment_log) {
+          html += `<div style="font-size:0.72rem;color:var(--text-muted)">${md(approach.experiment_log)}</div>`;
+        } else {
+          html += `<div id="log-loading-${approach.approach_id}" style="color:var(--text-muted)">Loading log...</div>`;
+          loadApproachDetail(approach.approach_id).then(detail => {
+            const el = document.getElementById('log-loading-' + approach.approach_id);
+            if (el && detail && detail.experiment_log) {
+              el.outerHTML = `<div style="font-size:0.72rem;color:var(--text-muted)">${md(detail.experiment_log)}</div>`;
+            } else if (el) el.textContent = 'No experiment log.';
+          });
+        }
+      }
+      html += '</div>';
+    }
+  }
+
+  html += '</div></div></div>';
+  return html;
+}
+
+// ========== Approach Card (overview compact view) ==========
+function renderApproachCard(approach, loopIdx) {
+  const statusConfig = {
+    completed: { color: 'var(--green)', label: 'Completed', icon: 'check_circle', fill: true },
+    evaluated: { color: 'var(--accent)', label: 'Evaluated', icon: 'check_circle', fill: false, pulse: true },
+    running: { color: 'var(--accent)', label: 'In Progress', icon: 'sync', pulse: true },
+    pending: { color: 'var(--text-muted)', label: 'Running', icon: 'hourglass_empty' },
+    failed: { color: 'var(--red)', label: 'Failed', icon: 'error' },
+  };
+  const sc = statusConfig[approach.status] || statusConfig.pending;
+  const isRing = approach.status === 'running';
+
+  let html = `<div class="group rounded-xl p-6 border flex flex-col justify-between h-48 relative overflow-hidden cursor-pointer transition-all duration-300 ${isRing ? 'ring-1' : ''}" style="background:var(--card-bg); border-color:var(--border-subtle); ${isRing ? 'ring-color:var(--accent-glow)' : ''}" onclick="navigateToApproach('${approach.approach_id}', ${loopIdx})">`;
+  html += `<div class="absolute top-0 right-0 w-24 h-24 rounded-full -mr-8 -mt-8" style="background:var(--accent);opacity:${approach.status==='running'?0.1:0.05}; filter:blur(3rem)"></div>`;
+
+  html += '<div>';
+  html += `<div class="flex justify-between items-start mb-4">
+    <span class="px-2 py-1 rounded font-mono text-[10px]" style="background:var(--main-bg); color:${approach.status==='running'?'var(--accent)':'var(--accent-secondary)'}; border:1px solid ${approach.status==='running'?'var(--accent-glow)':'var(--border-subtle)'}">${esc(approach.approach_id)}</span>
+    <span class="flex items-center gap-1.5 text-[10px] font-bold" style="color:${sc.color}">
+      ${sc.pulse ? '<span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background:' + sc.color + '"></span>' : ''}
+      ${sc.label}
+    </span>
+  </div>`;
+  html += `<h4 class="font-headline font-bold text-lg leading-tight group-hover:text-primary transition-colors" style="color:var(--text-heading)">${esc(approach.name || approach.approach_id)}</h4>`;
+  html += '</div>';
+
+  html += '<div class="flex justify-end items-end">';
+  html += `<div class="space-y-1 text-right">
+    <div class="text-[10px] uppercase tracking-widest" style="color:var(--accent-secondary)">Score</div>
+    <div class="text-sm font-mono" style="color:var(--text-heading)">${approach.score != null ? fmtScore(approach.score) : 'N/A'}</div>
+  </div>`;
+  html += '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+// ========== Approach toggle ==========
+function toggleApproach(approachId) {
+  const card = document.getElementById('approach-' + approachId);
+  if (!card) return;
+
+  // If expanding and detail not loaded yet, fetch it
+  if (!card.classList.contains('expanded') && !_approachDetailCache[approachId]) {
+    card.classList.add('expanded');
+    const body = card.querySelector('.approach-card-body');
+    if (body) body.innerHTML = '<div class="p-6 text-center" style="color:var(--text-muted)">Loading...</div>';
+    loadApproachDetail(approachId).then(detail => {
+      if (detail && RUN && RUN.loops) {
+        // Merge detail into the approach in RUN data
+        for (const loop of RUN.loops) {
+          if (loop.approaches) {
+            const idx = loop.approaches.findIndex(a => a.approach_id === approachId);
+            if (idx >= 0) {
+              Object.assign(loop.approaches[idx], detail);
+              break;
+            }
+          }
+        }
+        // Re-render just this card
+        const loopIdx = _findLoopForApproach(approachId);
+        if (loopIdx !== null) {
+          const approach = _getApproach(approachId);
+          if (approach) {
+            card.outerHTML = renderApproach(approach, loopIdx);
+            const newCard = document.getElementById('approach-' + approachId);
+            if (newCard) newCard.classList.add('expanded');
+          }
+        }
+      }
+    });
+  } else {
+    card.classList.toggle('expanded');
+  }
+}
+
+function _findLoopForApproach(approachId) {
+  if (!RUN || !RUN.loops) return null;
+  for (const loop of RUN.loops) {
+    if (loop.approaches) {
+      const found = loop.approaches.find(a => a.approach_id === approachId);
+      if (found) return loop.loop_index;
+    }
+  }
+  return null;
+}
+
+function _getApproach(approachId) {
+  if (!RUN || !RUN.loops) return null;
+  for (const loop of RUN.loops) {
+    if (loop.approaches) {
+      const found = loop.approaches.find(a => a.approach_id === approachId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function navigateToApproach(approachId, loopIdx) {
+  showSection('loop-' + loopIdx + '-implement');
+  // After rendering, expand the target approach card
+  setTimeout(() => {
+    const card = document.getElementById('approach-' + approachId);
+    if (card) {
+      card.classList.add('expanded');
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 50);
+}
+
+function switchTab(btn, approachId, tabName) {
+  btn.parentElement.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const allTabs = btn.parentElement.parentElement.querySelectorAll('.tab-content');
+  allTabs.forEach(t => t.classList.remove('active'));
+  const target = document.getElementById(`tab-${approachId}-${tabName}`);
+  if (target) target.classList.add('active');
+}
+
+// ========== Data loading ==========
+let _lastRunJson = '';
+let _lastStructureKey = '';  // tracks structural changes (new loops/approaches)
+const _approachDetailCache = {};
+const _conversationCache = {};
+let _pollInterval = 1000;
+let _pollTimer = null;
+// Incremental conversation refresh. Keyed conversations register their
+// in-memory conv here; a timer appends only new turns to whichever
+// conversation is currently visible (see refreshOpenConversations).
+let _openConvConvs = {};
+let _convPollTimer = null;
+const _CONV_POLL_INTERVAL = 1000;
+
+function _structureKey(run) {
+  // A lightweight fingerprint of the run structure — changes only when
+  // loops or approaches are added/removed or scores change.
+  if (!run || !run.loops) return '';
+  return run.loops.map(l =>
+    l.loop_index + ':' + (l.approaches || []).map(a =>
+      a.approach_id + '=' + a.status + ':' + a.score
+    ).join(',')
+  ).join('|');
+}
+
+async function fetchRunData() {
+  try {
+    const [runResp, logResp] = await Promise.all([
+      fetch('/api/run-overview'),
+      fetch('/api/execution-log'),
+    ]);
+    if (!runResp.ok) return;
+    const data = await runResp.json();
+    if (logResp.ok) {
+      const logData = await logResp.json();
+      TIMELINE = logData.timeline || [];
+    }
+    const newRunJson = JSON.stringify(data.run_data);
+    if (newRunJson !== _lastRunJson) {
+      _lastRunJson = newRunJson;
+      // Merge new overview data into RUN while preserving already-loaded details
+      const newRun = data.run_data;
+      if (RUN && RUN.loops) {
+        for (const newLoop of (newRun.loops || [])) {
+          const oldLoop = RUN.loops.find(l => l.loop_index === newLoop.loop_index);
+          if (oldLoop && oldLoop.approaches) {
+            for (const newApp of (newLoop.approaches || [])) {
+              const oldApp = oldLoop.approaches.find(a => a.approach_id === newApp.approach_id);
+              if (oldApp && oldApp.code_files) {
+                // Preserve full-detail fields that overview doesn't include
+                newApp.code_files = oldApp.code_files;
+                newApp.experiment_log = oldApp.experiment_log;
+                newApp.subagent_conversations = oldApp.subagent_conversations;
+              }
+            }
+          }
+          // Preserve loaded conversations
+          const oldLoop2 = RUN.loops.find(l => l.loop_index === newLoop.loop_index);
+          if (oldLoop2 && oldLoop2.propose_conversation) {
+            newLoop.propose_conversation = oldLoop2.propose_conversation;
+          }
+          if (oldLoop2 && oldLoop2.prepare_conversation) {
+            newLoop.prepare_conversation = oldLoop2.prepare_conversation;
+          }
+        }
+      }
+      RUN = newRun;
+      CHART = data.score_chart;
+      window._globalBest = data.global_best;
+      window._globalWorst = data.global_worst;
+      // Only rebuild DOM when structure changes (new loops/approaches/scores).
+      // Minor changes (e.g. token counts) just update header + timeline.
+      const newKey = _structureKey(RUN);
+      if (newKey !== _lastStructureKey) {
+        _lastStructureKey = newKey;
+        renderAll();
+      } else {
+        buildSidebar();
+        buildHeader();
+        const logEl = document.getElementById('exec-log-content');
+        if (logEl) { logEl.innerHTML = buildExecutionLog(); logEl.scrollTop = logEl.scrollHeight; }
+        // Still update evo chart if we're on overview
+        if (currentSection === 'overview' && CHART) {
+          initResultsCharts();
+        }
+      }
+    } else {
+      // Still update uptime + execution log (timeline may grow without run-data changing)
+      buildHeader();
+      const logEl = document.getElementById('exec-log-content');
+      if (logEl) { logEl.innerHTML = buildExecutionLog(); logEl.scrollTop = logEl.scrollHeight; }
+    }
+    // Reduce polling when run is finished
+    if (RUN && RUN.summary && RUN.summary.final_status &&
+        RUN.summary.final_status !== 'running' && _pollInterval < 10000) {
+      clearInterval(_pollTimer);
+      _pollInterval = 10000;
+      _pollTimer = setInterval(fetchRunData, _pollInterval);
+    }
+  } catch (e) {
+    console.warn('Failed to fetch run data:', e);
+  }
+}
+
+async function loadApproachDetail(approachId) {
+  if (_approachDetailCache[approachId]) return _approachDetailCache[approachId];
+  if (_isSnapshot) return null;
+  try {
+    const resp = await fetch('/api/approach-detail/' + encodeURIComponent(approachId));
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (data.approach) {
+      _approachDetailCache[approachId] = data.approach;
+      return data.approach;
+    }
+  } catch (e) {
+    console.warn('Failed to load approach detail:', approachId, e);
+  }
+  return null;
+}
+
+async function loadConversation(conversationKey) {
+  if (_conversationCache[conversationKey]) return _conversationCache[conversationKey];
+  if (_isSnapshot) return null;
+  try {
+    const resp = await fetch('/api/conversation/' + encodeURIComponent(conversationKey));
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const conv = data.conversation || null;
+    if (conv) _conversationCache[conversationKey] = conv;
+    return conv;
+  } catch (e) {
+    console.warn('Failed to load conversation:', conversationKey, e);
+  }
+  return null;
+}
+
+// ========== Incremental conversation refresh ==========
+// The overview poll deliberately preserves already-loaded conversations, so an
+// open transcript would otherwise freeze until a full page reload. This slower
+// timer fetches only the NEW tail of each VISIBLE keyed conversation via the
+// ?since= cursor and appends just the new/changed turns — bounded cost
+// regardless of transcript size (the original reason for the load-once cache).
+
+function _isNearBottom(el, threshold = 80) {
+  if (!el) return false;
+  return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+}
+
+// Inner HTML for one conversation = just the turns (the container element is
+// already the <div class="p-4"> wrapper that renderConversation emits).
+function renderConversationInner(conv) {
+  const turns = groupEventsByTurn(conv.events);
+  let html = '';
+  for (let i = 0; i < turns.length; i++) html += renderTurnHTML(turns[i], i);
+  return html;
+}
+
+// Re-render the last (possibly grown) turn in place + append any brand-new
+// turns. Avoids rebuilding the whole transcript DOM.
+function appendConversationTurns(container, conv) {
+  const turns = groupEventsByTurn(conv.events);
+  const prev = parseInt(container.dataset.renderedTurns || '0', 10);
+  const nearBottom = _isNearBottom(container);
+
+  // Turn at index prev-1 may have grown (an in-progress assistant turn gaining
+  // tool_use / tool_result items). Replace just that node.
+  const lastIdx = prev - 1;
+  if (lastIdx >= 0 && lastIdx < turns.length) {
+    const node = container.querySelector('#conv-turn-' + lastIdx);
+    if (node) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = renderTurnHTML(turns[lastIdx], lastIdx);
+      if (tmp.firstElementChild) node.replaceWith(tmp.firstElementChild);
+    }
+  }
+  // Append any turns beyond what was previously rendered.
+  const start = Math.max(lastIdx + 1, 0);
+  if (start < turns.length) {
+    let html = '';
+    for (let i = start; i < turns.length; i++) html += renderTurnHTML(turns[i], i);
+    container.insertAdjacentHTML('beforeend', html);
+  }
+  container.dataset.renderedTurns = String(turns.length);
+
+  // Refresh the "N messages, M tools" header meta.
+  const metaEl = document.getElementById('conv-meta-' + container.id);
+  if (metaEl) {
+    const msgCount = conv.events.length;
+    const totalTools = turns.reduce(
+      (s, t) => s + (t.role === 'assistant'
+        ? t.items.filter(it => it.type === 'tool_use').length + t.toolResults.length
+        : 0), 0);
+    metaEl.textContent = `${msgCount} message${msgCount !== 1 ? 's' : ''}` +
+      `${totalTools > 0 ? ', ' + totalTools + ' tool' + (totalTools !== 1 ? 's' : '') : ''}`;
+  }
+
+  // Only auto-scroll if the user was already following the tail.
+  if (nearBottom) container.scrollTop = container.scrollHeight;
+}
+
+async function refreshOpenConversations() {
+  if (_isSnapshot) return;
+  // Stop once the run is finished — no further messages will arrive.
+  if (RUN && RUN.summary && RUN.summary.final_status &&
+      RUN.summary.final_status !== 'running') return;
+
+  const containers = document.querySelectorAll('[data-conv-key]');
+  for (const container of containers) {
+    if (container.offsetParent === null) continue;  // hidden tab / section
+    const key = container.dataset.convKey;
+    const conv = _openConvConvs[key];
+    if (!conv || !conv.events) continue;
+
+    let fresh;
+    try {
+      const resp = await fetch(
+        '/api/conversation/' + encodeURIComponent(key) + '?since=' + conv.events.length);
+      if (!resp.ok) continue;
+      fresh = (await resp.json()).conversation;
+    } catch (e) { continue; }
+    if (!fresh) continue;
+
+    // File shrank below our cursor (e.g. resume truncated it) → refetch full.
+    if (fresh.reset) {
+      delete _conversationCache[key];
+      try {
+        const fullResp = await fetch('/api/conversation/' + encodeURIComponent(key));
+        if (fullResp.ok) {
+          const fullConv = (await fullResp.json()).conversation;
+          if (fullConv) {
+            _openConvConvs[key] = fullConv;
+            container.innerHTML = renderConversationInner(fullConv);
+            container.dataset.renderedTurns = String(groupEventsByTurn(fullConv.events).length);
+          }
+        }
+      } catch (e) { /* keep stale; next tick retries */ }
+      continue;
+    }
+
+    const newEvents = fresh.events || [];
+    if (!newEvents.length) continue;  // up to date
+    // Append to the shared in-memory conv so full re-renders stay consistent,
+    // then surgically update the DOM.
+    conv.events.push(...newEvents);
+    appendConversationTurns(container, conv);
+  }
+}
+
+function scrollLogToBottom() {
+  const logEl = document.getElementById('exec-log-content');
+  if (logEl) logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ========== UI state preservation across re-renders ==========
+let _expandedApproaches = new Set();
+let _activeTabs = {};          // approach_id -> tab name
+let _savedScrollTop = 0;
+let _scrollPositions = {};     // element id -> scrollTop
+
+function saveUIState() {
+  _expandedApproaches = new Set();
+  document.querySelectorAll('.approach-card.expanded').forEach(card => {
+    const id = card.id.replace('approach-', '');
+    _expandedApproaches.add(id);
+  });
+  // Save active tabs
+  _activeTabs = {};
+  document.querySelectorAll('.tab-btn.active').forEach(btn => {
+    const tabContent = btn.closest('.approach-card');
+    if (tabContent) {
+      const approachId = tabContent.id.replace('approach-', '');
+      _activeTabs[approachId] = btn.textContent;
+    }
+  });
+  // Save scroll positions
+  _savedScrollTop = window.scrollY;
+  _scrollPositions = {};
+  document.querySelectorAll('[id]').forEach(el => {
+    if (el.scrollTop > 0) _scrollPositions[el.id] = el.scrollTop;
+  });
+}
+
+function _restoreScrollPos(id) {
+  if (_scrollPositions[id]) {
+    const el = document.getElementById(id);
+    if (el) requestAnimationFrame(() => { el.scrollTop = _scrollPositions[id]; });
+  }
+}
+
+function restoreUIState() {
+  // Restore expanded approaches
+  _expandedApproaches.forEach(id => {
+    const card = document.getElementById('approach-' + id);
+    if (card) card.classList.add('expanded');
+  });
+  // Restore active tabs
+  for (const [approachId, tabName] of Object.entries(_activeTabs)) {
+    const card = document.getElementById('approach-' + approachId);
+    if (card) {
+      const btns = card.querySelectorAll('.tab-btn');
+      btns.forEach(btn => {
+        if (btn.textContent === tabName) btn.classList.add('active');
+        else btn.classList.remove('active');
+      });
+      // Show matching tab content
+      card.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+      const tabEl = document.getElementById('tab-' + approachId + '-' + tabName);
+      if (tabEl) tabEl.classList.add('active');
+    }
+  }
+  // Restore scroll positions after layout
+  requestAnimationFrame(() => {
+    for (const [id, scrollTop] of Object.entries(_scrollPositions)) {
+      const el = document.getElementById(id);
+      if (el) el.scrollTop = scrollTop;
+    }
+    if (_savedScrollTop > 0) window.scrollTo(0, _savedScrollTop);
+  });
+}
+
+function renderAll() {
+  if (!RUN) return;
+  saveUIState();
+  buildSidebar();
+  buildHeader();
+  if (currentSection) showSection(currentSection);
+  else showSection('overview');
+  restoreUIState();
+  requestAnimationFrame(scrollLogToBottom);
+}
+
+// ========== SSE ==========
+function connectSSE() {
+  try {
+    const es = new EventSource('/api/events');
+    es.onmessage = function(e) {
+      try {
+        const event = JSON.parse(e.data);
+        // Refresh on any meaningful event from the pipeline
+        if (event.type === 'stage_change' || event.type === 'stage_complete' ||
+            event.type === 'pipeline_start' || event.type === 'approach_scored' ||
+            event.type === 'approaches_registered' || event.type === 'cost_warning' ||
+            event.type === 'data_changed' || event.type === 'session_resuming') {
+          fetchRunData();
+        }
+        if (event.type === 'run_ended' || event.type === 'pipeline_end') {
+          if (RUN && RUN.summary) {
+            let evStatus = (event.data && event.data.status) || event.status || 'unknown';
+            // Normalize pipeline-specific statuses to canonical set
+            if (['all_succeeded','partial_succeeded'].includes(evStatus)) evStatus = 'success';
+            else if (evStatus === 'all_failed') evStatus = 'abort';
+            else if (!['success','abort','interrupted','error','loop'].includes(evStatus)) evStatus = 'abort';
+            RUN.summary.final_status = evStatus;
+          }
+          fetchRunData();
+          renderAll();
+        }
+        // heartbeat — no action needed
+      } catch(ex) {}
+    };
+    es.onerror = function() {
+      es.close();
+      // Fallback: switch to polling if SSE drops
+      setInterval(fetchRunData, 2000);
+    };
+  } catch(e) {
+    // SSE not available — fallback to polling
+    setInterval(fetchRunData, 2000);
+  }
+}
+
+// ========== Results Section ==========
+
+// ── Data transform: RUN → EVO / RANKED / BASELINES ──
+
+function buildEVO() {
+  if (!RUN || !RUN.loops || !RUN.loops.length) return [];
+  const evo = [];
+  const chartByIter = {};
+  if (CHART) for (const c of CHART) chartByIter[c.iter] = c;
+  for (const loop of RUN.loops) {
+    const chartEntry = chartByIter[loop.loop_index];
+    const agents = (loop.approaches || []).map((a, i) => ({
+      name: a.name || a.approach_id || 'unknown',
+      score: a.score != null ? a.score : null,
+      type: 'code',
+      parent: null,
+      _approach: a,
+      is_best: chartEntry && chartEntry.agents[i] ? chartEntry.agents[i].is_best : false,
+      is_worst: chartEntry && chartEntry.agents[i] ? chartEntry.agents[i].is_worst : false,
+    }));
+    const validScores = agents.map(a => a.score).filter(s => s !== null);
+    if (!validScores.length) continue;
+    const best = chartEntry ? chartEntry.best : validScores[0];
+    const proposeSummary = loop.propose_result ? loop.propose_result.summary : '';
+    evo.push({
+      iter: loop.loop_index,
+      agents,
+      best,
+      summary: proposeSummary || `Round ${loop.loop_index}: ${agents.length} approach(es) evaluated.`
+    });
+  }
+  return evo;
+}
+
+// ── Results chart initialization & rendering ──
+
+let _evoChart = null, _evoCtx = null;
+let _evoCurrentStep = 0, _evoHoverStep = -1, _evoHoverDot = -1;
+let _evoPinnedStep = -1, _evoPinnedDot = -1;
+const _evoPAD = { top: 32, right: 16, bottom: 40, left: 72 };
+let _evoDpr = 1;
+
+function initResultsCharts() {
+  const evo = buildEVO();
+
+  if (!evo.length) return;
+
+  // Only reset evo position if data actually changed
+  const prevLen = (window._evoData || []).length;
+  window._evoData = evo;
+  if (evo.length !== prevLen) {
+    _evoCurrentStep = Math.max(0, evo.length - 1);
+    _evoHoverStep = -1; _evoHoverDot = -1;
+  }
+
+  const canvas = document.getElementById('evoChart');
+  if (!canvas) return;
+  _evoChart = canvas;
+  _evoCtx = canvas.getContext('2d');
+
+  initEvoCanvas();
+  drawEvoChart();
+  renderEvoCard();
+  renderEvoLeaderboard();
+
+  // Re-attach canvas events (canvas is re-created each time section is shown)
+  canvas.removeEventListener('click', onEvoClick);
+  canvas.removeEventListener('mousemove', onEvoMouseMove);
+  canvas.removeEventListener('mouseleave', onEvoMouseLeave);
+  canvas.addEventListener('click', onEvoClick);
+  canvas.addEventListener('mousemove', onEvoMouseMove);
+  canvas.addEventListener('mouseleave', onEvoMouseLeave);
+}
+
+// Chart logical dimensions — read from actual CSS size at init time
+let _evoW = 900, _evoH = 320;
+
+function initEvoCanvas() {
+  if (!_evoChart) return;
+  _evoDpr = window.devicePixelRatio || 1;
+  // Let CSS control display size (width:100%, height:320px)
+  // Read the actual rendered size for backing store + coordinate calculations
+  const r = _evoChart.getBoundingClientRect();
+  _evoW = r.width;
+  _evoH = r.height;
+  _evoChart.width = Math.round(_evoW * _evoDpr);
+  _evoChart.height = Math.round(_evoH * _evoDpr);
+  _evoCtx.setTransform(_evoDpr, 0, 0, _evoDpr, 0, 0);
+}
+
+function evoIterCenterX(i, w) {
+  const evo = window._evoData;
+  const n = w - _evoPAD.left - _evoPAD.right;
+  return _evoPAD.left + (i + 0.5) * n / evo.length;
+}
+
+function evoAgentX(i, j, w) {
+  const evo = window._evoData;
+  const cx = evoIterCenterX(i, w);
+  const count = evo[i].agents.length;
+  if (count === 1) return cx;
+  const colW = (w - _evoPAD.left - _evoPAD.right) / evo.length;
+  const padding = 6;
+  const availW = colW - padding * 2;
+  const minGap = 20;
+  const spread = Math.min(Math.max((count - 1) * minGap, availW * 0.65), availW);
+  const step = count > 1 ? spread / (count - 1) : 0;
+  return cx - spread / 2 + j * step;
+}
+
+function evoScoreY(s, h) {
+  const evo = window._evoData;
+  const scores = [];
+  for (const it of evo) for (const a of it.agents) if (a.score !== null) scores.push(a.score);
+  if (!scores.length) return h / 2;
+  let minS = Math.min(...scores), maxS = Math.max(...scores);
+  if (minS === maxS) { minS -= 0.05; maxS += 0.05; }
+  const range = maxS - minS;
+  const minY = minS - range * 0.1;
+  const maxY = maxS + range * 0.15;
+  const frac = (s - minY) / (maxY - minY);
+  return _evoPAD.top + (1 - frac) * (h - _evoPAD.top - _evoPAD.bottom);
+}
+
+function evoFindAgent(name) {
+  const evo = window._evoData;
+  for (let i = 0; i < evo.length; i++)
+    for (let j = 0; j < evo[i].agents.length; j++)
+      if (evo[i].agents[j].name === name) return { s: i, a: j, agent: evo[i].agents[j] };
+  return null;
+}
+
+function evoLineage(toS, toA) {
+  const links = [];
+  let ag = window._evoData[toS].agents[toA], si = toS, ai = toA;
+  while (ag && ag.parent) {
+    const p = evoFindAgent(ag.parent);
+    if (!p) break;
+    links.push({ fromS: p.s, fromA: p.a, toS: si, toA: ai });
+    ag = p.agent; si = p.s; ai = p.a;
+  }
+  return links;
+}
+
+function drawEvoChart() {
+  const evo = window._evoData;
+  if (!evo || !evo.length || !_evoCtx) return;
+
+  const w = _evoW, h = _evoH;  // use cached dimensions from initEvoCanvas
+  const ctx = _evoCtx;
+  ctx.clearRect(0, 0, w, h);
+
+  // Grid
+  const scores = [];
+  for (const it of evo) for (const a of it.agents) if (a.score !== null) scores.push(a.score);
+  if (!scores.length) return;
+  let minS = Math.min(...scores), maxS = Math.max(...scores);
+  const globalBest = window._globalBest != null ? window._globalBest : maxS;
+  const globalWorst = window._globalWorst != null ? window._globalWorst : minS;
+  if (minS === maxS) { minS -= 0.05; maxS += 0.05; }
+  const range = maxS - minS;
+  const gridMin = minS - range * 0.1;
+  const gridMax = maxS + range * 0.15;
+  const gridRange = gridMax - gridMin;
+  function gridY(v) { return _evoPAD.top + (1 - (v - gridMin) / gridRange) * (h - _evoPAD.top - _evoPAD.bottom); }
+
+  const cs = getComputedStyle(document.documentElement);
+  const gridColor = cs.getPropertyValue('--chart-grid').trim() || 'rgba(255,255,255,0.06)';
+  const labelColor = cs.getPropertyValue('--chart-label').trim() || '#888';
+  const accentColor = cs.getPropertyValue('--accent').trim() || '#B39DDB';
+  const chartDotBest = cs.getPropertyValue('--chart-dot-best').trim() || '#86efac';
+  const chartDotWorse = cs.getPropertyValue('--chart-dot-worse').trim() || '#fca5a5';
+  const chartDotMuted = cs.getPropertyValue('--chart-dot-muted').trim() || '#6b7280';
+  const chartDotDefault = cs.getPropertyValue('--chart-dot-default').trim() || '#94a3b8';
+  const chartRed = cs.getPropertyValue('--red').trim() || '#ef4444';
+  const lineColor = cs.getPropertyValue('--accent-glow').trim() || 'rgba(179,157,219,0.4)';
+  const lineColorHL = accentColor;
+
+  ctx.strokeStyle = gridColor; ctx.lineWidth = 1;
+  const step = niceStep(gridRange, 6);
+  for (let v = Math.ceil(gridMin / step) * step; v <= gridMax; v += step) {
+    const y = gridY(v);
+    ctx.beginPath(); ctx.moveTo(_evoPAD.left, y); ctx.lineTo(w - _evoPAD.right, y); ctx.stroke();
+    ctx.fillStyle = labelColor; ctx.font = "11px system-ui, sans-serif";
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    ctx.fillText(fmtScore(v), _evoPAD.left - 8, y);
+  }
+
+  // Y label
+  ctx.save();
+  ctx.translate(12, (h - _evoPAD.bottom + _evoPAD.top) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = labelColor; ctx.font = "500 13px system-ui, sans-serif";
+  ctx.textAlign = "center"; ctx.fillText("Score", 0, 0);
+  ctx.restore();
+
+  // X labels
+  for (let i = 0; i < evo.length; i++) {
+    const x = evoIterCenterX(i, w);
+    ctx.fillStyle = labelColor; ctx.font = "11px system-ui, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.fillText("R" + evo[i].iter, x, h - _evoPAD.bottom + 10);
+  }
+
+  // Highlight column
+  const stepX = evoIterCenterX(_evoHoverStep >= 0 ? _evoHoverStep : _evoCurrentStep, w);
+  const colW = (w - _evoPAD.left - _evoPAD.right) / evo.length;
+  ctx.fillStyle = cs.getPropertyValue('--hover-bg').trim() || 'rgba(179,157,219,0.05)';
+  ctx.fillRect(stepX - colW / 2, _evoPAD.top, colW, h - _evoPAD.top - _evoPAD.bottom);
+
+  // Best-so-far frontier
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  for (let i = 0; i < evo.length; i++) {
+    const x0 = evoIterCenterX(i, w) - colW / 2 + 2;
+    const x1 = evoIterCenterX(i, w) + colW / 2 - 2;
+    const y = gridY(evo[i].best);
+    if (i === 0) ctx.moveTo(x0, y);
+    else {
+      const yPrev = gridY(evo[i - 1].best);
+      if (Math.abs(yPrev - y) > 0.5) { ctx.lineTo(x0, yPrev); ctx.lineTo(x0, y); }
+    }
+    ctx.lineTo(x1, y);
+  }
+  ctx.stroke();
+
+  // Lineage lines
+  const hlLinks = new Set(), hlAncestors = new Set();
+  if (_evoHoverStep >= 0 && _evoHoverDot >= 0) {
+    evoLineage(_evoHoverStep, _evoHoverDot).forEach(l => {
+      hlLinks.add(l.fromS + "," + l.fromA + "," + l.toS + "," + l.toA);
+      hlAncestors.add(l.fromS + "," + l.fromA);
+    });
+  }
+  for (let i = 0; i < evo.length; i++) {
+    for (let j = 0; j < evo[i].agents.length; j++) {
+      const ag = evo[i].agents[j];
+      if (!ag.parent) continue;
+      const p = evoFindAgent(ag.parent);
+      if (!p || p.agent.score === null || ag.score === null) continue;
+      const key = p.s + "," + p.a + "," + i + "," + j;
+      const isHL = hlLinks.has(key);
+      ctx.strokeStyle = isHL ? lineColorHL : lineColor.replace(/[\d.]+\)$/, '0.07)');
+      ctx.lineWidth = isHL ? 2 : 1;
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      ctx.moveTo(evoAgentX(p.s, p.a, w), gridY(p.agent.score));
+      ctx.lineTo(evoAgentX(i, j, w), gridY(ag.score));
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+
+  // Dots
+  for (let i = 0; i < evo.length; i++) {
+    const iter = evo[i];
+    const isActive = i === _evoCurrentStep;
+    const isHoverIter = i === _evoHoverStep;
+    const isPinnedIter = i === _evoPinnedStep;
+    const prevBest = i > 0 ? evo[i - 1].best : evo[0].best;
+
+    for (let j = 0; j < iter.agents.length; j++) {
+      const ag = iter.agents[j];
+      const x = evoAgentX(i, j, w);
+      const isHDot = (isHoverIter && j === _evoHoverDot) || (isPinnedIter && j === _evoPinnedDot && !isHoverIter);
+
+      if (ag.score === null) {
+        const y = gridY(gridMin + range * 0.02);
+        const a = isActive || isHDot ? 0.8 : isHoverIter ? 0.5 : 0.3;
+        ctx.strokeStyle = chartRed; ctx.globalAlpha = a; ctx.lineWidth = 2;
+        const r = isHoverIter ? 5 : 4;
+        ctx.beginPath(); ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x + r, y - r); ctx.lineTo(x - r, y + r); ctx.stroke();
+        continue;
+      }
+
+      const y = gridY(ag.score);
+      const isGlobalBest = ag.is_best || (ag.score === globalBest && globalBest != null);
+      const isGlobalWorst = ag.is_worst || (ag.score === globalWorst && ag.score !== globalBest && globalWorst != null);
+      const isAncestor = hlAncestors.has(i + "," + j);
+      let radius = isHDot ? 8 : isAncestor || isHoverIter || isActive ? 6 : 4;
+      let color = isGlobalBest ? chartDotBest : isGlobalWorst ? chartDotWorse : accentColor;
+      if (!isHDot && !isActive && !isHoverIter) color = isAncestor ? chartDotMuted : chartDotDefault;
+      const alpha = isHDot || isActive ? 1 : isAncestor ? 0.85 : isHoverIter ? 0.7 : 0.45;
+
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x, y, radius, 0, 2 * Math.PI); ctx.fill();
+
+      if (isHDot || isActive) {
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = color;
+        ctx.font = "bold 11px system-ui, sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+        ctx.fillText(fmtScore(ag.score), x, y - 10);
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+// ── Evo card & leaderboard ──
+
+function renderEvoCard() {
+  const evo = window._evoData;
+  if (!evo || !evo.length) return;
+  const iter = evo[_evoCurrentStep];
+  const chartEntry = CHART ? CHART.find(c => c.iter === iter.iter) : null;
+  const prevBest = _evoCurrentStep > 0 ? evo[_evoCurrentStep - 1].best : evo[0].best;
+  const globalBest = window._globalBest != null ? window._globalBest : null;
+  const globalWorst = window._globalWorst != null ? window._globalWorst : null;
+  const improved = chartEntry ? chartEntry.improved : iter.best > prevBest;
+
+  let badge = "";
+  if (_evoCurrentStep === 0) badge = '';
+  else if (iter.agents.every(a => a.score === null)) badge = '<span class="evo-badge fail">Failed</span>';
+  else if (improved) {
+    const delta = chartEntry ? Math.abs(chartEntry.delta) : Math.abs(iter.best - prevBest);
+    badge = '<span class="evo-badge up">+' + fmtScore(delta) + ' pts</span>';
+  }
+  else badge = '<span class="evo-badge neutral">No improvement</span>';
+
+  const agentsHtml = iter.agents.map(ag => {
+    const isGlobalBest = ag.is_best || (ag.score !== null && globalBest !== null && ag.score === globalBest);
+    const isGlobalWorst = ag.is_worst || (ag.score !== null && globalWorst !== null && ag.score === globalWorst && ag.score !== globalBest);
+    let color = ag.score === null ? 'var(--chart-dot-worse)' : isGlobalBest ? 'var(--chart-dot-best)' : isGlobalWorst ? 'var(--chart-dot-worse)' : 'var(--accent)';
+    const label = ag.score === null ? "failed" : fmtScore(ag.score);
+    return `<span class="evo-agent-item"><span class="evo-dot" style="background:${color}"></span>${esc(ag.name)} (${label})</span>`;
+  }).join("");
+
+  const card = document.getElementById('evoCard');
+  if (card) card.innerHTML =
+    `<div class="evo-card-header"><span class="evo-card-title">Round ${iter.iter}</span>${badge}</div>` +
+    `<div class="evo-card-summary">${esc(iter.summary)}</div>` +
+    `<div class="evo-card-agents">${agentsHtml}</div>`;
+
+  const label = document.getElementById('evoLabel');
+  if (label) label.textContent = "Round " + iter.iter + " / " + evo.length;
+  const prev = document.getElementById('evoPrev');
+  const next = document.getElementById('evoNext');
+  if (prev) prev.disabled = _evoCurrentStep === 0;
+  if (next) next.disabled = _evoCurrentStep === evo.length - 1;
+}
+
+function renderEvoLeaderboard() {
+  const evo = window._evoData;
+  if (!evo || !evo.length) return;
+
+  // Show each loop's best score
+  const items = evo.map((it, i) => ({
+    label: "Round " + it.iter,
+    score: it.best,
+    idx: i,
+    isOurs: i === evo.length - 1
+  }));
+
+  const lb = document.getElementById('evoLeaderboard');
+  if (!lb) return;
+  lb.innerHTML =
+    '<div class="evo-lb-title">Round Best</div>' +
+    items.map(it => {
+      const active = it.idx === _evoCurrentStep ? " active" : "";
+      const style = it.isOurs ? "font-weight:600;color:var(--green);" : active ? "color:var(--accent);" : "";
+      return `<div class="evo-lb-item${active}" data-idx="${it.idx}" ` +
+        `onmouseenter="evoLbHover(${it.idx})" onmouseleave="evoLbLeave()">` +
+        `<span class="evo-lb-name" style="${style}">${it.label}</span>` +
+        `<span class="evo-lb-rate" style="${style}">${fmtScore(it.score)}</span></div>`;
+    }).join("");
+
+  lb.querySelectorAll('.evo-lb-item').forEach(el => {
+    el.addEventListener('click', function() {
+      const idx = parseInt(this.dataset.idx);
+      _evoCurrentStep = idx;
+      drawEvoChart(); renderEvoCard(); renderEvoLeaderboard();
+    });
+  });
+}
+
+function evoLbHover(idx) { _evoHoverStep = idx; drawEvoChart(); }
+function evoLbLeave() { _evoHoverStep = -1; _evoHoverDot = -1; drawEvoChart(); renderEvoHoverDiff(); }
+
+function renderEvoHoverDiff() {
+  const evo = window._evoData;
+  const el = document.getElementById('evoHoverDiff');
+  if (!el) return;
+  // Use pinned dot if set, otherwise hover; clear if neither
+  const step = _evoPinnedStep >= 0 ? _evoPinnedStep : _evoHoverStep;
+  const dot = _evoPinnedDot >= 0 ? _evoPinnedDot : _evoHoverDot;
+  if (step < 0 || dot < 0) { el.innerHTML = ""; return; }
+  const ag = evo[step].agents[dot];
+  if (!ag) { el.innerHTML = ""; return; }
+  if (ag._approach) {
+    const a = ag._approach;
+    const scoreStr = ag.score === null ? "failed" : fmtScore(ag.score);
+    // Header: name + score
+    let html = `<div style="margin-bottom:0.5rem"><strong style="color:var(--text-heading)">${esc(ag.name)}</strong> <span style="color:var(--accent);font-weight:600">(${scoreStr})</span></div>`;
+    // Scored solution description. Do not fall back to the initial hypothesis.
+    const solutionDesc = (a.final_result && a.final_result.description) || a.solution_description || a.description || '';
+    if (solutionDesc) {
+      html += `<div style="margin:0.3rem 0"><div style="font-size:0.68rem;color:var(--accent-secondary);text-transform:uppercase;letter-spacing:0.06em">Solution description</div>`;
+      html += `<p style="color:var(--text-muted);font-size:0.75rem;margin:0.2rem 0">${esc(solutionDesc)}</p></div>`;
+    } else if (ag.score !== null) {
+      html += `<p style="color:var(--text-muted);font-size:0.75rem;margin:0.3rem 0">No scored solution description recorded for this result.</p>`;
+    }
+    // Initial hypothesis is available but collapsed by default.
+    if (a.initial_hypothesis_description) {
+      html += `<details style="margin:0.3rem 0"><summary style="font-size:0.72rem;color:var(--text-muted)">Initial approach description</summary>`;
+      html += `<p style="font-size:0.72rem;color:var(--text-muted)">${esc(a.initial_hypothesis_description)}</p></details>`;
+    }
+    if (a.approach_md) {
+      html += `<details style="margin:0.3rem 0"><summary style="font-size:0.72rem;color:var(--text-muted)">Initial approach details</summary>`;
+      html += `<div style="font-size:0.72rem;color:var(--text-muted)">${md(a.approach_md)}</div></details>`;
+    }
+    // Experiment log (deferred in overview mode)
+    if (a.experiment_log) {
+      html += `<details style="margin:0.3rem 0"><summary style="font-size:0.72rem;color:var(--text-muted)">Experiment Log</summary>`;
+      html += `<div style="font-size:0.72rem;color:var(--text-muted)">${md(a.experiment_log)}</div></details>`;
+    } else if (a.has_experiment_log) {
+      html += `<div style="font-size:0.72rem;color:var(--text-muted)">Experiment log available (click approach to view)</div>`;
+    }
+    // Code files (deferred in overview mode)
+    if (a.code_files && Object.keys(a.code_files).length) {
+      html += `<details style="margin:0.3rem 0"><summary style="font-size:0.72rem;color:var(--text-muted)">Code (${Object.keys(a.code_files).length} file${Object.keys(a.code_files).length > 1 ? 's' : ''})</summary>`;
+      for (const [fname, content] of Object.entries(a.code_files)) {
+        html += `<div style="font-size:11px;font-weight:600;color:var(--text-muted);margin:0.2rem 0">${esc(fname)}</div>`;
+        html += `<div class="code-block" style="font-size:10px;max-height:120px;overflow-y:auto">${highlight(content, fname.endsWith('.py') ? 'python' : '')}</div>`;
+      }
+      html += '</details>';
+    } else if (a.has_code_files) {
+      html += `<div style="font-size:0.72rem;color:var(--text-muted)">Code files available (${a.code_file_count || '?'}) — click approach to view</div>`;
+    }
+    // Result
+    if (a.final_result) {
+      html += `<details style="margin:0.3rem 0"><summary style="font-size:0.72rem;color:var(--text-muted)">Result</summary>`;
+      html += `<div class="code-block" style="font-size:10px">${highlight(JSON.stringify(a.final_result, null, 2), 'json')}</div></details>`;
+    }
+    el.innerHTML = html;
+  } else {
+    const scoreStr = ag.score === null ? "failed" : fmtScore(ag.score);
+    el.innerHTML = `<div class="evo-diff-agent"><strong>${esc(ag.name)}</strong> (${scoreStr})</div>`;
+  }
+}
+
+function evoStep(dir) {
+  const evo = window._evoData;
+  const next = _evoCurrentStep + dir;
+  if (!evo || next < 0 || next >= evo.length) return;
+  _evoCurrentStep = next; _evoHoverStep = -1;
+  drawEvoChart(); renderEvoCard(); renderEvoLeaderboard();
+}
+
+function evoHitTestIter(mx, w) {
+  const evo = window._evoData;
+  let best = -1, bestD = Infinity;
+  for (let i = 0; i < evo.length; i++) {
+    const d = Math.abs(mx - evoIterCenterX(i, w));
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return best;
+}
+
+function evoHitTestDot(mx, my, w, h) {
+  const evo = window._evoData;
+  for (let i = 0; i < evo.length; i++) {
+    for (let j = 0; j < evo[i].agents.length; j++) {
+      const ag = evo[i].agents[j];
+      const x = evoAgentX(i, j, w);
+      const y = ag.score !== null ? evoScoreY(ag.score, h) : evoScoreY(0, h);
+      if (Math.sqrt((mx - x) ** 2 + (my - y) ** 2) < 14) return { s: i, a: j };
+    }
+  }
+  return null;
+}
+
+function _evoChartSize() {
+  return { w: _evoW, h: _evoH };
+}
+
+function _evoMouseCoords(e) {
+  if (!_evoChart) return { mx: 0, my: 0, w: 0, h: 0 };
+  const r = _evoChart.getBoundingClientRect();
+  return {
+    mx: e.clientX - r.left,
+    my: e.clientY - r.top,
+    w: _evoW,
+    h: _evoH,
+  };
+}
+
+function onEvoClick(e) {
+  if (!_evoChart) return;
+  const { mx, my, w, h } = _evoMouseCoords(e);
+  const hit = evoHitTestDot(mx, my, w, h);
+  if (hit) {
+    _evoCurrentStep = hit.s;
+    // Toggle pin: clicking the same dot unpins, clicking a different dot pins it
+    if (_evoPinnedStep === hit.s && _evoPinnedDot === hit.a) {
+      _evoPinnedStep = -1; _evoPinnedDot = -1;
+    } else {
+      _evoPinnedStep = hit.s; _evoPinnedDot = hit.a;
+    }
+    _evoHoverStep = -1;
+    drawEvoChart(); renderEvoCard(); renderEvoLeaderboard(); renderEvoHoverDiff();
+  }
+}
+
+function onEvoMouseMove(e) {
+  if (!_evoChart) return;
+  const { mx, my, w, h } = _evoMouseCoords(e);
+
+  const it = evoHitTestIter(mx, w);
+  let dt = -1;
+  if (it >= 0) {
+    let bestDist = 20;
+    for (let j = 0; j < window._evoData[it].agents.length; j++) {
+      const ag = window._evoData[it].agents[j];
+      const ax = evoAgentX(it, j, w);
+      const ay = ag.score !== null ? evoScoreY(ag.score, h) : evoScoreY(0, h);
+      const d = Math.sqrt((mx - ax) ** 2 + (my - ay) ** 2);
+      if (d < bestDist) { bestDist = d; dt = j; }
+    }
+  }
+
+  _evoChart.style.cursor = evoHitTestDot(mx, my, w, h) ? "pointer" : "default";
+  if (it !== _evoHoverStep || dt !== _evoHoverDot) {
+    _evoHoverStep = it; _evoHoverDot = dt;
+    drawEvoChart(); renderEvoHoverDiff();
+  }
+}
+
+function onEvoMouseLeave() {
+  _evoHoverStep = -1; _evoHoverDot = -1;
+  drawEvoChart(); renderEvoHoverDiff();
+}
+
+// Keyboard nav for evo chart
+document.addEventListener('keydown', function(e) {
+  if (currentSection !== 'overview') return;
+  if (e.key === 'ArrowLeft') evoStep(-1);
+  if (e.key === 'ArrowRight') evoStep(1);
+});
+
+// Resize handler for evo chart
+window.addEventListener('resize', function() {
+  if (currentSection !== 'overview') return;
+  if (_evoChart) { initEvoCanvas(); drawEvoChart(); }
+});
+
+// ========== Snapshot mode ==========
+// When opened as a static snapshot, window.__SNAPSHOT_DATA__ is pre-populated
+// with all API responses, so no live server is needed.
+const _isSnapshot = typeof window.__SNAPSHOT_DATA__ !== 'undefined';
+
+function _applySnapshotData() {
+  const sd = window.__SNAPSHOT_DATA__;
+  if (!sd) return;
+  RUN = sd.run_data || null;
+  CHART = sd.score_chart || [];
+  window._globalBest = sd.global_best != null ? sd.global_best : null;
+  window._globalWorst = sd.global_worst != null ? sd.global_worst : null;
+  TIMELINE = sd.timeline || [];
+
+  // Merge approach details directly into RUN so rendering code never
+  // needs to lazy-load.  This makes the snapshot fully self-contained.
+  const details = sd.approach_details || {};
+  const convs = sd.conversations || {};
+  if (RUN && RUN.loops) {
+    for (const loop of RUN.loops) {
+      // Merge prepare conversation
+      if (!loop.prepare_conversation && convs['prepare']) {
+        loop.prepare_conversation = convs['prepare'];
+      }
+      // Merge propose conversation
+      const proposeKey = 'loop_' + loop.loop_index + '_propose';
+      if (!loop.propose_conversation && convs[proposeKey]) {
+        loop.propose_conversation = convs[proposeKey];
+      }
+      // Merge approach details & conversations into each approach
+      for (const a of (loop.approaches || [])) {
+        const aid = a.approach_id;
+        const d = details[aid];
+        if (d) {
+          if (!a.code_files && d.code_files) a.code_files = d.code_files;
+          if (!a.experiment_log && d.experiment_log) a.experiment_log = d.experiment_log;
+          if (!a.subagent_conversations && d.subagent_conversations) a.subagent_conversations = d.subagent_conversations;
+          if (!a.approach_md && d.approach_md) a.approach_md = d.approach_md;
+          if (!a.final_result && d.final_result) a.final_result = d.final_result;
+          if (!a.solution_description && d.solution_description) a.solution_description = d.solution_description;
+          if (!a.description && d.description) a.description = d.description;
+          if (!a.initial_hypothesis_description && d.initial_hypothesis_description) a.initial_hypothesis_description = d.initial_hypothesis_description;
+        }
+        if (!a.subagent_conversations && convs[aid]) {
+          a.subagent_conversations = [convs[aid]];
+        }
+      }
+    }
+  }
+
+  // Also populate caches as fallback
+  for (const [id, detail] of Object.entries(details)) {
+    if (detail) _approachDetailCache[id] = detail;
+  }
+  for (const [key, conv] of Object.entries(convs)) {
+    if (conv) _conversationCache[key] = conv;
+  }
+}
+
+// ========== Init ==========
+if (_isSnapshot) {
+  _applySnapshotData();
+  document.getElementById('snapshot-badge').style.display = 'inline-block';
+  const dot = document.getElementById('live-indicator');
+  if (dot) dot.style.display = 'none';
+  renderAll();
+} else {
+  connectSSE();
+  fetchRunData();
+  _pollTimer = setInterval(fetchRunData, _pollInterval);
+  _convPollTimer = setInterval(refreshOpenConversations, _CONV_POLL_INTERVAL);
+}
+</script>
+</body></html>

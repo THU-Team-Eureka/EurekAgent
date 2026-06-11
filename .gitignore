@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.python-version
+
+# Virtual environments
+.venv/
+venv/
+.venv-container/
+.eureka_docker/
+uv.lock
+
+# Logs and runtime
+/runs/
+
+# Project internals
+.claude/settings.local.json
+.claude/playwright-mcp.json
+.claude/playwright-mcp-8002.json
+.cache/
+.debug/
+.superpowers/
+docs/
+.playwright-mcp/
+.tmp/
+/docs/
+/tests/
+examples/kernel_engineering_trimul_loose/
+
+# Benchmark
+benchmark/
+examples/mle-bench/
+cache/
+.claude/skills/eureka-mlebench-helper

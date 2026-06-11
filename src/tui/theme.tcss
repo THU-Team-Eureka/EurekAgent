@@ -1,0 +1,32 @@
+/* EurekAgent TUI theme */
+
+Screen {
+    background: $surface;
+}
+
+LogoBanner {
+    text-align: center;
+    color: $accent;
+    padding: 1 0 0 0;
+}
+
+#command-input, #session-input {
+    border: tall $accent;
+    padding: 0 1;
+}
+
+#command-input:focus, #session-input:focus {
+    border: tall $accent-lighten-2;
+}
+
+RichLog {
+    scrollbar-size: 1 1;
+}
+
+OptionList {
+    border: none;
+}
+
+OptionList:focus > .option-list--option-highlighted {
+    background: $accent 20%;
+}

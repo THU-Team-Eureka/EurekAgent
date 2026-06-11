@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <a href="#news">News</a> · <a href="#overview">Overview</a> · <a href="#quick-start">Quick Start</a> · <a href="#setting-up-a-new-problem">New Problem</a> · <a href="#useful-tips">Useful Tips</a> · <a href="#contributing">Contributing</a> · <a href="#commercial-licensing">Commercial Licensing</a> · <a href="#citation">Citation</a>
+  <a href="#news">News</a> · <a href="#overview">Overview</a> · <a href="#quick-start">Quick Start</a> · <a href="#setting-up-a-new-problem">New Problem</a> · <a href="#useful-tips">Useful Tips</a> · <a href="#results">Results</a> · <a href="#contributing">Contributing</a> · <a href="#commercial-licensing">Commercial Licensing</a> · <a href="#citation">Citation</a>
 </p>
 
 
@@ -43,10 +43,12 @@ https://github.com/user-attachments/assets/c5b45b20-7eec-454e-98c3-6880bcec878b
 
 ### Highlights
 
+- **Environment engineering first** — provides strong CLI agents with the resources, constraints, artifacts, budgets, and human interfaces needed for reliable autonomous discovery.
 - **End-to-end research loop** — proposes approaches, implements code, evaluates submissions, and iterates toward better results.
 - **Problem-defined evaluation** — uses your `INSTRUCTION.md`, `SUBMISSION_FORMAT.md`, and private `evaluate.py` as the source of truth.
-- **Isolated execution** — runs agent work and grading in Docker containers for reproducible, sandboxed experiments.
-- **Human-in-the-loop friendly** — supports monitoring, snapshots, and optional intervention throughout a run.
+- **Isolated execution** — runs agent work and grading in separate Docker containers for secure, sandboxed experiments.
+- **Resumable long runs** — flexibly interrupt and resume a run from persisted state.
+- **User-friendly interfaces** — optionally chat with agents through the TUI, and track live cost stats, score evolution, and full session logs in the web monitor.
 
 <a id="quick-start"></a>
 ## 🚀 Quick Start
@@ -127,9 +129,9 @@ If you are behind a proxy or `docker pull` fails, see the [Docker troubleshootin
 
 ### 5. (Recommended) Configure MCP servers for web access
 
-During a run the agent can search the web for problem context and read live pages. Two MCP servers enable this. Both are **optional** — when absent, the agent falls back to Claude Code's built-in `WebSearch`.
+During a run the agent can search the web for problem context and read live pages. These MCP servers are **optional** — when absent, the agent falls back to Claude Code's built-in `WebSearch`. `web-search-prime` is intended for GLM users; users of other model providers can skip it or configure their preferred search MCP.
 
-**a) [`web-search-prime`](https://docs.z.ai/devpack/mcp/search-mcp-server) — structured web search**
+**a) [`web-search-prime`](https://docs.z.ai/devpack/mcp/search-mcp-server) — structured web search for GLM users only**
 
 ```bash
 claude mcp add -s user -t http web-search-prime https://api.z.ai/api/mcp/web_search_prime/mcp --header "Authorization: Bearer YOUR_KEY_HERE"
@@ -248,6 +250,11 @@ to restrict the run to a subset of GPUs.
 <a id="useful-tips"></a>
 ## 💡 Useful Tips
 
+### Best practices for new problems
+
+- Design evaluators defensively: consider obvious reward-hacking paths, invalid outputs, hidden-test leakage, tolerance abuse, filesystem side effects, and score tampering.
+- Include the current SOTA, best known score, or target score in `INSTRUCTION.md` so agents know what result they are trying to beat.
+
 ### Monitor & snapshots
 
 - **Live monitor** — starts automatically in the background during a run (disable with `--no-monitor`, pick a port with `--monitor-port`). It prints a `Web monitor: http://127.0.0.1:<port>` URL you can open in a browser.
@@ -265,24 +272,35 @@ The snapshot is written into the run's directory as `monitor_snapshot.html` — 
 
 ### Docker runtime model
 
-Eureka runs in Docker mode by default. Each run starts two isolated containers:
-an **agent container** for Claude Code sessions and a **grader container** for
-the secure evaluator. They are separate containers, but both bind-mount the
-same run workspace as `/workspace`, so files created during the run are visible
-to both agent code and evaluator code.
+EurekAgent runs in Docker mode by default. Each run uses two containers:
 
-The hidden evaluator directory is mounted only into the grader container as
-read-only `/hidden_eval`, so the agent does not directly see the private
-grader. The host/controller uses the project `.venv`, while containers use a
-persistent Linux venv under `.eureka_docker/venvs/...` mounted as
-`/workspace/.venv`. Delete `.eureka_docker/venvs` to force recreation of the
-container Python environment.
+- **Agent container**: runs Claude Code sessions and sees the run workspace at `/workspace`.
+- **Grader container**: runs the secure evaluation server and also sees `/workspace`, so it can read submitted files and write official results.
+
+The hidden evaluator directory (`hidden_eval_dir`) is mounted only into the grader container, read-only, at `/hidden_eval`. It is not mounted into the agent container, so agent code can submit candidates and receive scores but cannot directly read or modify the private evaluator.
+
+The host/controller uses the project `.venv`, while containers use a persistent Linux venv under `.eureka_docker/venvs/...` mounted as `/workspace/.venv`. Delete `.eureka_docker/venvs` to force recreation of the container Python environment.
+
+<a id="results"></a>
+## 📊 Results
+
+EurekAgent achieves strong results across mathematics, kernel engineering, and machine learning tasks. It sets new state-of-the-art results on all evaluated mathematics and kernel engineering tasks, and ranks first by medal rate on our seven-task MLE-Bench subset. On the three mathematical optimization tasks, each run used less than $17 in API cost.
+
+| Domain | Task | Previous Best AI | EurekAgent |
+|--------|------|------------------|------------|
+| Mathematics | Circle Packing (↑) | 2.635986 | **2.635999** |
+| Mathematics | Erdős' Min. Overlap (↓) | 0.380876 | **0.380870** |
+| Mathematics | 1st Autocorr. Ineq. (↓) | 1.502863 | **1.502861** |
+| Kernel Engineering | TriMul (↓) | 2247.78 μs | **2005.03 μs** |
+| Machine Learning | MLE-Bench subset (↑) | 71.43% | **85.71%** |
 
 
 <a id="contributing"></a>
 ## 🤝 Contributing
 
 Contributions are welcome! Whether it's bug reports, feature ideas, or pull requests — every bit helps. For substantial changes, please open an issue first to discuss the design, and keep changes focused, documented, and covered by relevant tests when possible.
+
+We especially welcome contributions for Windows support and additional CLI-agent adapters, such as Codex.
 
 ### How to Contribute
 

@@ -8,6 +8,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg?style=flat-square" /></a>
+  <a href="https://arxiv.org/abs/2606.13662"><img alt="arXiv: 2606.13662" src="https://img.shields.io/badge/arXiv-2606.13662-b31b1b?style=flat-square&logo=arxiv&logoColor=white" /></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.12-3776ab?style=flat-square&logo=python&logoColor=white" />
   <img alt="Claude Code" src="https://img.shields.io/badge/built%20on-Claude%20Code-1f6feb?style=flat-square" />
   <img alt="Docker" src="https://img.shields.io/badge/runtime-Docker-2496ed?style=flat-square&logo=docker&logoColor=white" />
@@ -318,13 +319,16 @@ This project is licensed under [AGPL-3.0](LICENSE). For commercial licensing inq
 <a id="citation"></a>
 ## 📚 Citation
 
-If you find EurekAgent useful for your research, please cite this repository:
+If you find EurekAgent useful for your research, please cite our [paper](https://arxiv.org/abs/2606.13662):
 
 ```bibtex
-@software{eurekagent2026,
-  title = {EurekAgent: Agent Environment Engineering Is All You Need For Autonomous Scientific Discovery},
-  author = {Amy Xin, Jiening Siow, Junjie Wang, Zijun Yao, Fanjin Zhang, Jian Song, Lei Hou, Juanzi Li},
+@misc{xin2026eurekagent,
+  title = {EurekAgent: Agent Environment Engineering is All You Need For Autonomous Scientific Discovery},
+  author = {Amy Xin and Jiening Siow and Junjie Wang and Zijun Yao and Fanjin Zhang and Jian Song and Lei Hou and Juanzi Li},
   year = {2026},
-  url = {https://github.com/THU-TeamEureka/EurekAgent}
+  eprint = {2606.13662},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.AI},
+  url = {https://arxiv.org/abs/2606.13662}
 }
 ```

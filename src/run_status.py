@@ -214,7 +214,11 @@ def terminal_context(
     is_better = None
     if config and getattr(config, "hidden_eval_dir", ""):
         try:
-            grader_url = getattr(config, "_grader_url", "")
+            grader_url = getattr(
+                config,
+                "_controller_grader_url",
+                getattr(config, "_grader_url", ""),
+            )
             grader_token = getattr(config, "_grader_token", "")
             if grader_url and grader_token:
                 is_better = grader_is_better_client(grader_url, grader_token)

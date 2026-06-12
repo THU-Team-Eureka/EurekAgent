@@ -65,7 +65,11 @@ _IMPLEMENT_WARNING_PROMPT = (
 
 
 def _ranking_is_better(config) -> Any:
-    grader_url = getattr(config, "_grader_url", "")
+    grader_url = getattr(
+        config,
+        "_controller_grader_url",
+        getattr(config, "_grader_url", ""),
+    )
     grader_token = getattr(config, "_grader_token", "")
     if grader_url and grader_token:
         return grader_is_better_client(grader_url, grader_token)

@@ -585,6 +585,7 @@ def _start_grader_server(workspace_dir: Path, config: Config) -> DockerContainer
 
     submit_host = "127.0.0.1" if config.docker_network == "host" else "host.docker.internal"
     object.__setattr__(config, "_grader_url", f"http://{submit_host}:{port}")
+    object.__setattr__(config, "_controller_grader_url", f"http://127.0.0.1:{port}")
     object.__setattr__(config, "_grader_token", token)
     log.info("Docker grader server started on port %d", port)
     return grader

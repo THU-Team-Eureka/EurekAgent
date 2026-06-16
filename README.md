@@ -322,13 +322,10 @@ This project is licensed under [AGPL-3.0](LICENSE). For commercial licensing inq
 If you find EurekAgent useful for your research, please cite our [paper](https://arxiv.org/abs/2606.13662):
 
 ```bibtex
-@misc{xin2026eurekagent,
-  title = {EurekAgent: Agent Environment Engineering is All You Need For Autonomous Scientific Discovery},
-  author = {Amy Xin and Jiening Siow and Junjie Wang and Zijun Yao and Fanjin Zhang and Jian Song and Lei Hou and Juanzi Li},
-  year = {2026},
-  eprint = {2606.13662},
-  archivePrefix = {arXiv},
-  primaryClass = {cs.AI},
-  url = {https://arxiv.org/abs/2606.13662}
+@article{xin2026eurekagent,
+  title={EurekAgent: Agent Environment Engineering is All You Need For Autonomous Scientific Discovery},
+  author={Xin, Amy and Siow, Jiening and Wang, Junjie and Yao, Zijun and Zhang, Fanjin and Song, Jian and Hou, Lei and Li, Juanzi},
+  journal={arXiv preprint arXiv:2606.13662},
+  year={2026}
 }
 ```

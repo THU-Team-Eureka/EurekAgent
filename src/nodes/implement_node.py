@@ -28,7 +28,7 @@ from ..history import (
 )
 from ..time_budget import write_time_budget
 from ..prompts.implement import build_implement_brief
-from ..ranking import _load_is_better, grader_is_better_client, rank_history
+from ..ranking import controller_is_better, rank_history
 from ..runtime import (
     get_config,
     get_event_queue,
@@ -65,15 +65,7 @@ _IMPLEMENT_WARNING_PROMPT = (
 
 
 def _ranking_is_better(config) -> Any:
-    grader_url = getattr(
-        config,
-        "_controller_grader_url",
-        getattr(config, "_grader_url", ""),
-    )
-    grader_token = getattr(config, "_grader_token", "")
-    if grader_url and grader_token:
-        return grader_is_better_client(grader_url, grader_token)
-    return _load_is_better(config.hidden_eval_dir)
+    return controller_is_better(config)
 
 
 def scaffold_implement_dirs(workspace: Path, manifest_path: Path) -> None:

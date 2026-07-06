@@ -32,7 +32,7 @@ from .runtime import (
 from .session_map import latest_open_propose_loop
 from .stage_results import scan_stage_results
 from .run_status import (
-    finalize_run, resolve_run_status, round_label, terminal_context,
+    finalize_run, resolve_run_status, terminal_context,
 )
 from .resume_preflight import apply_resume_extra_time, check_resume_preflight
 from .run_config import config_to_metadata, new_resume_event
@@ -281,13 +281,14 @@ async def run_pipeline(
             return state
         except Exception as exc:
             log.exception("Pipeline terminated with an exception")
-            push_run_end_event(
-                "error",
-                reason=str(exc)[:200],
-                stage=initial_state.get("next_stage", ""),
-                round_label=round_label(initial_state, config.max_loops),
-                evidence_paths=[str(run_dir / "run.log")],
+            state = _reconstruct_state(run_id, run_dir, config)
+            state["status"] = "error"
+            _save_summary(run_dir, state)
+            ctx = terminal_context(
+                final_state=state, run_dir=run_dir, max_loops=config.max_loops,
+                config=config,
             )
+            push_run_end_event("error", reason=str(exc)[:200], **ctx)
             raise
         except BaseException as exc:
             # Catch CancelledError (task cancelled when TUI exits) and other
@@ -463,13 +464,14 @@ async def resume_pipeline(
             return state
         except Exception as exc:
             log.exception("Pipeline terminated with an exception")
-            push_run_end_event(
-                "error",
-                reason=str(exc)[:200],
-                stage=state.get("next_stage", ""),
-                round_label=round_label(state, config.max_loops),
-                evidence_paths=[str(run_dir / "run.log")],
+            state = _reconstruct_state(run_id, run_dir, config)
+            state["status"] = "error"
+            _save_summary(run_dir, state)
+            ctx = terminal_context(
+                final_state=state, run_dir=run_dir, max_loops=config.max_loops,
+                config=config,
             )
+            push_run_end_event("error", reason=str(exc)[:200], **ctx)
             raise
         except BaseException as exc:
             log.exception(

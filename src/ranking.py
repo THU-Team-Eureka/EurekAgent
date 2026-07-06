@@ -60,6 +60,40 @@ def grader_is_better_client(
     return _is_better
 
 
+def controller_is_better(config: Any) -> Callable[[float, float], bool]:
+    """Return the controller-side score comparator.
+
+    The controller can read the hidden evaluation directory, so ranking should
+    not depend on the live secure-grader HTTP service. The HTTP fallback is only
+    for unusual configurations where local loading is unavailable.
+    """
+    hidden_eval_dir = getattr(config, "hidden_eval_dir", "")
+    if hidden_eval_dir:
+        try:
+            return _load_is_better(hidden_eval_dir)
+        except Exception:
+            log.exception(
+                "Failed to load is_better from hidden_eval_dir=%s; "
+                "falling back to secure grader if configured",
+                hidden_eval_dir,
+            )
+
+    grader_url = getattr(
+        config,
+        "_controller_grader_url",
+        getattr(config, "_grader_url", ""),
+    )
+    grader_token = getattr(config, "_grader_token", "")
+    if grader_url and grader_token:
+        return grader_is_better_client(grader_url, grader_token)
+
+    if hidden_eval_dir:
+        raise RuntimeError(
+            "Unable to load local is_better and no secure grader comparator is configured."
+        )
+    raise RuntimeError("No hidden_eval_dir or secure grader comparator is configured.")
+
+
 def _score_rank(
     entries: list[dict[str, Any]],
     is_better: Callable[[float, float], bool],

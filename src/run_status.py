@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import importlib.util
 import json
 from pathlib import Path
 from typing import Any, Callable
 
 from .artifacts import artifact_reason_text
 from .history import load_ranked_history, resolve_ranked_history_path
-from .ranking import grader_is_better_client
+from .ranking import controller_is_better
 from .runtime import get_token_tracker, push_run_end_event
 from .token_tracker import aggregate_token_usage, format_token_count, format_token_summary
 
@@ -214,16 +213,7 @@ def terminal_context(
     is_better = None
     if config and getattr(config, "hidden_eval_dir", ""):
         try:
-            grader_url = getattr(
-                config,
-                "_controller_grader_url",
-                getattr(config, "_grader_url", ""),
-            )
-            grader_token = getattr(config, "_grader_token", "")
-            if grader_url and grader_token:
-                is_better = grader_is_better_client(grader_url, grader_token)
-            else:
-                is_better = load_is_better(config.hidden_eval_dir)
+            is_better = controller_is_better(config)
         except Exception:
             pass
     best_score, best_approach_id, baseline_score, baseline_approach_id = (
@@ -241,19 +231,6 @@ def terminal_context(
         "baseline_score": baseline_score,
         "baseline_approach_id": baseline_approach_id,
     }
-
-
-def load_is_better(hidden_eval_dir: str) -> Callable[[float, float], bool]:
-    eval_path = Path(hidden_eval_dir) / "evaluate.py"
-    spec = importlib.util.spec_from_file_location("_eval_is_better", eval_path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Cannot load {eval_path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    fn = getattr(module, "is_better", None)
-    if not callable(fn):
-        raise RuntimeError(f"{eval_path} must define `is_better(new_score, old_score) -> bool`")
-    return fn
 
 
 def extract_score_summary(

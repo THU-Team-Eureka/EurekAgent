@@ -167,6 +167,7 @@ class EurekAgentApp(App):
                 _cache_creation_price=self._config.cache_creation_token_price,
                 _cache_read_price=self._config.cache_read_token_price,
                 _output_price=self._config.output_token_price,
+                _price_tiers=self._config.token_price_tiers,
             )
             set_token_tracker(self._token_tracker)
             if self._resume_id:

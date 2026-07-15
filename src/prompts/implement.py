@@ -10,11 +10,14 @@ from ..state import LoopState
 
 
 def _format_token_pricing(state: LoopState) -> str:
+    tiers = state.get("token_price_tiers")
+    currency = state.get("cost_currency", "USD")
+    if tiers:
+        return f"context-tiered {currency} per 1M tokens: {json.dumps(tiers, ensure_ascii=False)}"
     inp = state.get("input_token_price")
     cc = state.get("cache_creation_token_price")
     cr = state.get("cache_read_token_price")
     out = state.get("output_token_price")
-    currency = state.get("cost_currency", "USD")
     if inp is None and out is None and cc is None and cr is None:
         return "N/A"
     parts = []

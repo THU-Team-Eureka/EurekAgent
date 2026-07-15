@@ -362,6 +362,14 @@ def _load_metadata(run_dir: Path, *, summary: dict[str, Any] | None = None) -> d
     data.setdefault("output_tokens", token_usage.get("output_tokens"))
     data.setdefault("cache_read_input_tokens", token_usage.get("cache_read_input_tokens"))
     data.setdefault("cache_creation_input_tokens", token_usage.get("cache_creation_input_tokens"))
+    if isinstance(summary.get("cost"), dict):
+        cost_summary = summary["cost"]
+        data.setdefault("total_cost", cost_summary.get("total_cost"))
+        data.setdefault("pricing_mode", cost_summary.get("pricing_mode"))
+        data.setdefault("total_input_cost", cost_summary.get("total_input_cost"))
+        data.setdefault("total_cache_creation_cost", cost_summary.get("total_cache_creation_cost"))
+        data.setdefault("total_cache_read_cost", cost_summary.get("total_cache_read_cost"))
+        data.setdefault("total_output_cost", cost_summary.get("total_output_cost"))
 
     # Build formatted token_usage string for the header display
     from ..token_tracker import format_cost, format_token_count
@@ -376,6 +384,7 @@ def _load_metadata(run_dir: Path, *, summary: dict[str, Any] | None = None) -> d
                 _cache_creation_price=data.get("cache_creation_token_price"),
                 _cache_read_price=data.get("cache_read_token_price"),
                 _output_price=data.get("output_token_price"),
+                _price_tiers=data.get("token_price_tiers"),
             )
             tracker.update_session("_total", {
                 "input_tokens": inp,

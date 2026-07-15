@@ -44,6 +44,7 @@ class LoopState(TypedDict, total=False):
     cache_creation_token_price: float | None
     cache_read_token_price: float | None
     output_token_price: float | None
+    token_price_tiers: list[dict[str, Any]] | None
     cost_currency: str
 
     # Append-only event log.

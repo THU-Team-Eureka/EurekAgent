@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import ast
 import dataclasses
+import json
 import logging
 import os
 import sys
@@ -76,6 +77,16 @@ def main() -> None:
     parser.add_argument("--cache-creation-token-price", type=float, default=None)
     parser.add_argument("--cache-read-token-price", type=float, default=None)
     parser.add_argument("--output-token-price", type=float, default=None)
+    parser.add_argument(
+        "--token-price-tiers",
+        type=str,
+        default=None,
+        help=(
+            "JSON list of context-length pricing tiers. Each tier needs "
+            "max_context_tokens, input, output, cache_read; cache_creation "
+            "defaults to input. Prices are per 1M tokens."
+        ),
+    )
     parser.add_argument("--cost-currency", type=str, default="USD")
     parser.add_argument("--resume", type=str, default=None, metavar="RUN_ID")
     parser.add_argument(
@@ -332,7 +343,10 @@ def _check_time_budget_mode(
 def _validate_token_pricing_args(
     parser: argparse.ArgumentParser, args: argparse.Namespace
 ) -> None:
-    """Require explicit input/output token prices to be provided as a pair."""
+    """Validate scalar or context-length tiered token pricing."""
+    if args.token_price_tiers is not None:
+        args.token_price_tiers = _parse_token_price_tiers(parser, args.token_price_tiers)
+
     has_input = args.input_token_price is not None
     has_output = args.output_token_price is not None
     if has_input == has_output:
@@ -341,6 +355,61 @@ def _validate_token_pricing_args(
         "--input-token-price and --output-token-price must be set together. "
         "Provide both prices, or omit both to use automatic pricing lookup."
     )
+
+
+def _parse_token_price_tiers(
+    parser: argparse.ArgumentParser,
+    raw: str,
+) -> list[dict[str, float | int | None]]:
+    """Parse and validate --token-price-tiers JSON."""
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        parser.error(f"--token-price-tiers must be valid JSON: {exc}")
+    if not isinstance(payload, list) or not payload:
+        parser.error("--token-price-tiers must be a non-empty JSON list")
+
+    tiers: list[dict[str, float | int | None]] = []
+    saw_open_ended = False
+    previous_max = -1
+    for index, tier in enumerate(payload):
+        if not isinstance(tier, dict):
+            parser.error(f"--token-price-tiers[{index}] must be an object")
+        for key in ("max_context_tokens", "input", "output", "cache_read"):
+            if key not in tier:
+                parser.error(f"--token-price-tiers[{index}] is missing required key '{key}'")
+
+        max_context = tier.get("max_context_tokens")
+        if max_context is None:
+            saw_open_ended = True
+            normalized_max: int | None = None
+        else:
+            if not isinstance(max_context, int) or max_context <= 0:
+                parser.error(
+                    f"--token-price-tiers[{index}].max_context_tokens must be a positive integer or null"
+                )
+            if max_context <= previous_max:
+                parser.error("--token-price-tiers max_context_tokens must be strictly increasing")
+            previous_max = max_context
+            normalized_max = max_context
+
+        normalized: dict[str, float | int | None] = {
+            "max_context_tokens": normalized_max,
+        }
+        for key in ("input", "output", "cache_read", "cache_creation"):
+            value = tier.get(key)
+            if key == "cache_creation" and value is None:
+                value = tier.get("input")
+            if not isinstance(value, (int, float)) or value < 0:
+                parser.error(f"--token-price-tiers[{index}].{key} must be a non-negative number")
+            normalized[key] = float(value)
+        tiers.append(normalized)
+
+    if not saw_open_ended:
+        parser.error("--token-price-tiers must include a final tier with max_context_tokens=null")
+    if tiers[-1]["max_context_tokens"] is not None:
+        parser.error("the final --token-price-tiers entry must have max_context_tokens=null")
+    return tiers
 
 
 def _validate_time_budget(
@@ -377,6 +446,9 @@ def _finalize_config(config: Config) -> Config:
     resolved_model = resolve_model_name(config.model)
     if resolved_model and config.model is None:
         config = dataclasses.replace(config, model=resolved_model)
+
+    if config.token_price_tiers:
+        return config
 
     if config.input_token_price is not None and config.output_token_price is not None:
         overrides = {}

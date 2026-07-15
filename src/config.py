@@ -19,6 +19,7 @@ class Config:
     cache_creation_token_price: float | None = None
     cache_read_token_price: float | None = None
     output_token_price: float | None = None
+    token_price_tiers: list[dict] | None = None
     model: str | None = None
     cost_currency: str = "USD"
     # Docker/runtime isolation.

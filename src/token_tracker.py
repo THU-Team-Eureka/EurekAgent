@@ -24,6 +24,33 @@ _CURRENCY_SYMBOLS = {
 }
 
 
+@dataclass
+class BillableUsage:
+    """Per-usage token deltas used for context-length tiered pricing."""
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_input_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+
+
+@dataclass(frozen=True)
+class CostBreakdown:
+    input_cost: float = 0.0
+    cache_creation_cost: float = 0.0
+    cache_read_cost: float = 0.0
+    output_cost: float = 0.0
+
+    @property
+    def total(self) -> float:
+        return (
+            self.input_cost
+            + self.cache_creation_cost
+            + self.cache_read_cost
+            + self.output_cost
+        )
+
+
 def _safe_int(value: int | None) -> int:
     """Convert a value to int, treating None as 0."""
     return value if value is not None else 0
@@ -58,6 +85,8 @@ class SessionUsage:
     _last_cache_read: int = field(default=0, repr=False)
     _seen_message_ids: set[str] = field(default_factory=set, repr=False)
     _last_per_message: dict[str, dict] = field(default_factory=dict, repr=False)
+    _billable_by_message: dict[str, BillableUsage] = field(default_factory=dict, repr=False)
+    _billable_no_id: list[BillableUsage] = field(default_factory=list, repr=False)
 
     def update(self, usage: dict, message_id: str = "") -> bool:
         """Merge a per-call usage dict into this session.
@@ -87,10 +116,23 @@ class SessionUsage:
             if cache_read > self._last_cache_read:
                 self.cache_read_input_tokens = cache_read
                 self._last_cache_read = cache_read
+            old_billable = self._billable_by_message.get(message_id, BillableUsage())
+            previous_cache_read = int(prev.get("cache_read_input_tokens", 0)) if prev else 0
+            cache_read_delta = old_billable.cache_read_input_tokens + max(
+                0, cache_read - previous_cache_read
+            )
+            self._billable_by_message[message_id] = BillableUsage(
+                input_tokens=inp,
+                output_tokens=out,
+                cache_read_input_tokens=cache_read_delta,
+                cache_creation_input_tokens=cache_create,
+            )
             # Store latest per-call values for future replacements.
             self._last_per_message[message_id] = {
                 "input_tokens": inp,
                 "output_tokens": out,
+                "cache_read_input_tokens": cache_read,
+                "cache_read_delta": cache_read_delta,
                 "cache_creation_input_tokens": cache_create,
             }
             return True
@@ -105,19 +147,37 @@ class SessionUsage:
         self.cache_creation_input_tokens += cache_create
 
         # cache_read is cumulative — take the latest value.
+        cache_read_delta = 0
         if cache_read > self._last_cache_read:
+            cache_read_delta = cache_read - self._last_cache_read
             self.cache_read_input_tokens = cache_read
             self._last_cache_read = cache_read
+
+        billable = BillableUsage(
+            input_tokens=inp,
+            output_tokens=out,
+            cache_read_input_tokens=cache_read_delta,
+            cache_creation_input_tokens=cache_create,
+        )
 
         if message_id:
             self._seen_message_ids.add(message_id)
             self._last_per_message[message_id] = {
                 "input_tokens": inp,
                 "output_tokens": out,
+                "cache_read_input_tokens": cache_read,
+                "cache_read_delta": cache_read_delta,
                 "cache_creation_input_tokens": cache_create,
             }
+            self._billable_by_message[message_id] = billable
+        else:
+            self._billable_no_id.append(billable)
 
         return True
+
+    @property
+    def billable_usages(self) -> list[BillableUsage]:
+        return list(self._billable_by_message.values()) + list(self._billable_no_id)
 
 
 @dataclass
@@ -128,6 +188,7 @@ class TokenTracker:
     _cache_creation_price: float | None  # per 1M cache creation tokens
     _cache_read_price: float | None  # per 1M cache read tokens
     _output_price: float | None  # per 1M output tokens
+    _price_tiers: list[dict[str, float | int | None]] | None = None
     _sessions: dict[str, SessionUsage] = field(default_factory=dict)
 
     # ------------------------------------------------------------------
@@ -162,27 +223,46 @@ class TokenTracker:
         Each token type uses its own price; if a type-specific price is None,
         it falls back to _input_price (for input-class tokens).
         """
+        breakdown = self.calculate_cost_breakdown()
+        return breakdown.total if breakdown is not None else None
+
+    def calculate_cost_breakdown(self, session_key: str | None = None) -> CostBreakdown | None:
+        """Calculate total cost and per-token-class costs."""
+        if self._price_tiers:
+            usages = self._billable_usages(session_key)
+            if not usages and not self._has_any_scalar_price():
+                return None
+            return self._tiered_cost_breakdown(usages)
+
         if self._input_price is None and self._output_price is None and self._cache_creation_price is None and self._cache_read_price is None:
             return None
 
-        t = self.totals
+        t = self._usage_for_session(session_key)
         cost = 0.0
+        input_cost = 0.0
+        cache_creation_cost = 0.0
+        cache_read_cost = 0.0
+        output_cost = 0.0
         # Input tokens
         input_p = self._input_price
         if input_p is not None:
-            cost += t.input_tokens * input_p / _MILLION
+            input_cost = t.input_tokens * input_p / _MILLION
+            cost += input_cost
         # Cache creation — own price, fallback to input price
         cc_p = self._cache_creation_price if self._cache_creation_price is not None else self._input_price
         if cc_p is not None:
-            cost += t.cache_creation_input_tokens * cc_p / _MILLION
+            cache_creation_cost = t.cache_creation_input_tokens * cc_p / _MILLION
+            cost += cache_creation_cost
         # Cache read — own price, fallback to input price
         cr_p = self._cache_read_price if self._cache_read_price is not None else self._input_price
         if cr_p is not None:
-            cost += t.cache_read_input_tokens * cr_p / _MILLION
+            cache_read_cost = t.cache_read_input_tokens * cr_p / _MILLION
+            cost += cache_read_cost
         # Output tokens
         if self._output_price is not None:
-            cost += t.output_tokens * self._output_price / _MILLION
-        return cost
+            output_cost = t.output_tokens * self._output_price / _MILLION
+            cost += output_cost
+        return CostBreakdown(input_cost, cache_creation_cost, cache_read_cost, output_cost)
 
     def session_usage(self, session_key: str) -> SessionUsage | None:
         """Return the SessionUsage for a given key, or None."""
@@ -190,25 +270,65 @@ class TokenTracker:
 
     def session_cost(self, session_key: str) -> float | None:
         """Calculate cost for a single session. Returns None if session doesn't exist."""
-        usage = self._sessions.get(session_key)
-        if usage is None:
-            return None
+        breakdown = self.calculate_cost_breakdown(session_key=session_key)
+        return breakdown.total if breakdown is not None else None
 
-        if self._input_price is None and self._output_price is None and self._cache_creation_price is None and self._cache_read_price is None:
-            return None
+    def _usage_for_session(self, session_key: str | None) -> SessionUsage:
+        if session_key is None:
+            return self.totals
+        return self._sessions.get(session_key, SessionUsage())
 
-        cost = 0.0
-        if self._input_price is not None:
-            cost += usage.input_tokens * self._input_price / _MILLION
-        cc_p = self._cache_creation_price if self._cache_creation_price is not None else self._input_price
-        if cc_p is not None:
-            cost += usage.cache_creation_input_tokens * cc_p / _MILLION
-        cr_p = self._cache_read_price if self._cache_read_price is not None else self._input_price
-        if cr_p is not None:
-            cost += usage.cache_read_input_tokens * cr_p / _MILLION
-        if self._output_price is not None:
-            cost += usage.output_tokens * self._output_price / _MILLION
-        return cost
+    def _billable_usages(self, session_key: str | None) -> list[BillableUsage]:
+        if session_key is not None:
+            session = self._sessions.get(session_key)
+            return session.billable_usages if session is not None else []
+        usages: list[BillableUsage] = []
+        for session in self._sessions.values():
+            usages.extend(session.billable_usages)
+        return usages
+
+    def _has_any_scalar_price(self) -> bool:
+        return any(
+            price is not None
+            for price in (
+                self._input_price,
+                self._cache_creation_price,
+                self._cache_read_price,
+                self._output_price,
+            )
+        )
+
+    def _tiered_cost_breakdown(self, usages: list[BillableUsage]) -> CostBreakdown:
+        input_cost = 0.0
+        cache_creation_cost = 0.0
+        cache_read_cost = 0.0
+        output_cost = 0.0
+        for usage in usages:
+            context_tokens = (
+                usage.input_tokens
+                + usage.cache_read_input_tokens
+                + usage.cache_creation_input_tokens
+            )
+            tier = self._tier_for_context(context_tokens)
+            input_price = float(tier["input"])
+            cache_creation_price = float(tier.get("cache_creation", input_price))
+            cache_read_price = float(tier["cache_read"])
+            output_price = float(tier["output"])
+            input_cost += usage.input_tokens * input_price / _MILLION
+            cache_creation_cost += (
+                usage.cache_creation_input_tokens * cache_creation_price / _MILLION
+            )
+            cache_read_cost += usage.cache_read_input_tokens * cache_read_price / _MILLION
+            output_cost += usage.output_tokens * output_price / _MILLION
+        return CostBreakdown(input_cost, cache_creation_cost, cache_read_cost, output_cost)
+
+    def _tier_for_context(self, context_tokens: int) -> dict[str, float | int | None]:
+        tiers = self._price_tiers or []
+        for tier in tiers:
+            max_context = tier.get("max_context_tokens")
+            if max_context is None or context_tokens < int(max_context):
+                return tier
+        return tiers[-1]
 
 
 def usage_to_dict(usage: SessionUsage) -> dict[str, int]:
@@ -223,39 +343,17 @@ def token_usage_dict(tracker: TokenTracker) -> dict[str, int]:
 
 def cost_stats(tracker: TokenTracker, currency: str = "USD") -> dict[str, float | str]:
     """Return total and per-dimension cost without duplicating price metadata."""
-    t = tracker.totals
-    input_cost = (
-        t.input_tokens * tracker._input_price / _MILLION
-        if tracker._input_price is not None else 0.0
-    )
-    cc_price = (
-        tracker._cache_creation_price
-        if tracker._cache_creation_price is not None else tracker._input_price
-    )
-    cache_creation_cost = (
-        t.cache_creation_input_tokens * cc_price / _MILLION
-        if cc_price is not None else 0.0
-    )
-    cr_price = (
-        tracker._cache_read_price
-        if tracker._cache_read_price is not None else tracker._input_price
-    )
-    cache_read_cost = (
-        t.cache_read_input_tokens * cr_price / _MILLION
-        if cr_price is not None else 0.0
-    )
-    output_cost = (
-        t.output_tokens * tracker._output_price / _MILLION
-        if tracker._output_price is not None else 0.0
-    )
-    total = input_cost + cache_creation_cost + cache_read_cost + output_cost
+    breakdown = tracker.calculate_cost_breakdown()
+    if breakdown is None:
+        breakdown = CostBreakdown()
     return {
-        "total_cost": total,
+        "total_cost": breakdown.total,
         "currency": currency,
-        "total_input_cost": input_cost,
-        "total_cache_creation_cost": cache_creation_cost,
-        "total_cache_read_cost": cache_read_cost,
-        "total_output_cost": output_cost,
+        "pricing_mode": "tiered" if tracker._price_tiers else "scalar",
+        "total_input_cost": breakdown.input_cost,
+        "total_cache_creation_cost": breakdown.cache_creation_cost,
+        "total_cache_read_cost": breakdown.cache_read_cost,
+        "total_output_cost": breakdown.output_cost,
     }
 
 

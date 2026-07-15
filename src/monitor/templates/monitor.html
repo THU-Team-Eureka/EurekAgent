@@ -750,7 +750,7 @@ function renderOverview() {
   const cacheCreation = m.cache_creation_input_tokens != null ? m.cache_creation_input_tokens : null;
   const cacheRead = m.cache_read_input_tokens != null ? m.cache_read_input_tokens : null;
   const outputTokens = m.output_tokens != null ? m.output_tokens : null;
-  const currentCost = [_tokenPrice('input',inputTokens),_tokenPrice('cache_creation',cacheCreation),_tokenPrice('cache_read',cacheRead),_tokenPrice('output',outputTokens)].filter(v=>v!=null).reduce((a,b)=>a+b,0);
+  const currentCost = m.total_cost != null ? m.total_cost : [_tokenPrice('input',inputTokens),_tokenPrice('cache_creation',cacheCreation),_tokenPrice('cache_read',cacheRead),_tokenPrice('output',outputTokens)].filter(v=>v!=null).reduce((a,b)=>a+b,0);
   const costLimit = m.cost_limit;
   const costPct = costLimit != null && costLimit > 0 ? Math.min((currentCost / costLimit) * 100, 100) : null;
   const costExceeded = costLimit != null && currentCost >= costLimit;

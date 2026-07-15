@@ -218,6 +218,7 @@ async def run_pipeline(
             _cache_creation_price=config.cache_creation_token_price,
             _cache_read_price=config.cache_read_token_price,
             _output_price=config.output_token_price,
+            _price_tiers=config.token_price_tiers,
         )
         set_token_tracker(tracker)
 
@@ -382,6 +383,7 @@ async def resume_pipeline(
             _cache_creation_price=config.cache_creation_token_price,
             _cache_read_price=config.cache_read_token_price,
             _output_price=config.output_token_price,
+            _price_tiers=config.token_price_tiers,
         )
         set_token_tracker(tracker)
     hydrate_tracker_from_run(run_dir, tracker)
@@ -676,6 +678,7 @@ def _build_initial_state(
         "cache_creation_token_price": config.cache_creation_token_price,
         "cache_read_token_price": config.cache_read_token_price,
         "output_token_price": config.output_token_price,
+        "token_price_tiers": config.token_price_tiers,
         "cost_currency": config.cost_currency,
     }
 
@@ -721,6 +724,7 @@ def _save_metadata(
         "cache_creation_token_price": config.cache_creation_token_price,
         "cache_read_token_price": config.cache_read_token_price,
         "output_token_price": config.output_token_price,
+        "token_price_tiers": config.token_price_tiers,
         "cost_currency": config.cost_currency,
         "docker_image": config.docker_image,
         "docker_network": config.docker_network,
@@ -766,6 +770,7 @@ def _save_summary(run_dir: Path, state: dict[str, Any]) -> None:
             _cache_creation_price=state.get("cache_creation_token_price"),
             _cache_read_price=state.get("cache_read_token_price"),
             _output_price=state.get("output_token_price"),
+            _price_tiers=state.get("token_price_tiers"),
         )
         tracker.update_session("_summary", token_usage)
         cost = cost_stats(tracker, currency=state.get("cost_currency", "USD"))

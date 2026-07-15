@@ -375,6 +375,9 @@ class DockerContainer:
             capture_output=True, check=False,
         )
         if result.returncode != 0:
+            details = _clean_subprocess_output(result.stderr or result.stdout)
+            if _looks_like_docker_access_error(details):
+                raise RuntimeError(_format_docker_access_error(details, self._image))
             build_script = Path(__file__).resolve().parents[2] / "docker" / "build.sh"
             if build_script.exists():
                 log.info("Image %s not found, building...", self._image)
@@ -684,6 +687,36 @@ def _format_docker_start_error(exc: subprocess.CalledProcessError) -> str:
     if stdout:
         parts.append(f"Docker stdout:\n{stdout}")
     return "\n".join(parts)
+
+
+def _looks_like_docker_access_error(details: str) -> bool:
+    text = details.lower()
+    patterns = (
+        "cannot connect to the docker daemon",
+        "failed to connect to the docker api",
+        "docker.sock",
+        "is the docker daemon running",
+        "permission denied",
+        "docker_host",
+    )
+    return any(pattern in text for pattern in patterns)
+
+
+def _format_docker_access_error(details: str, image: str) -> str:
+    return (
+        "EurekAgent could not access Docker with the current environment, so it "
+        "cannot inspect or build the agent image.\n\n"
+        f"Original docker error:\n{details}\n\n"
+        "Check Docker from the same shell/session used to launch EurekAgent:\n"
+        "  docker context show\n"
+        "  docker info\n"
+        f"  docker image inspect {image}\n\n"
+        "Platform hints:\n"
+        "  macOS/Windows: make sure Docker Desktop or your selected Docker context is running.\n"
+        "  Linux: make sure the docker service is running and your user can access the Docker socket.\n\n"
+        "If these commands work in your terminal but EurekAgent still fails, check "
+        "DOCKER_HOST, Docker context, and shell environment differences."
+    )
 
 
 def _is_proxy_key(key: str) -> bool:

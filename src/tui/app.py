@@ -29,7 +29,7 @@ from ..runtime import (
     set_user_message_queue,
 )
 from ..token_tracker import (
-    TokenTracker, format_token_count, hydrate_tracker_from_run,
+    TokenTracker, format_cost, format_token_count, hydrate_tracker_from_run,
     scan_jsonl_usage_since,
 )
 from .screens.overview import OverviewScreen
@@ -362,7 +362,9 @@ class EurekAgentApp(App):
             current = event_data.get("current_cost", 0)
             limit = event_data.get("limit", 0)
             self.notify(
-                f"Cost ${current:.2f} approaching limit ${limit:.2f} ({level})",
+                "Cost "
+                f"{format_cost(current, self._config.cost_currency)} approaching limit "
+                f"{format_cost(limit, self._config.cost_currency)} ({level})",
                 severity="warning",
             )
             return
@@ -564,13 +566,13 @@ class EurekAgentApp(App):
             if self._token_tracker is not None:
                 cost = self._token_tracker.session_cost(session_key)
                 if cost is not None:
-                    cost_str = f"${cost:.2f}"
+                    cost_str = format_cost(cost, self._config.cost_currency)
             if not cost_str:
                 cost_usd = data.get("total_cost_usd")
                 if cost_usd is not None:
                     cost_str = f"${cost_usd:.4f}"
                 else:
-                    cost_str = "$N/A"
+                    cost_str = format_cost(None, self._config.cost_currency)
             tokens = (
                 f" · in {(usage.get('input_tokens') or 0):,}"
                 f" · out {(usage.get('output_tokens') or 0):,}"
@@ -620,7 +622,7 @@ class EurekAgentApp(App):
             return
         t = self._token_tracker.totals
         cost = self._token_tracker.calculate_cost()
-        cost_str = f" · ${cost:.2f}" if cost is not None else " · $N/A"
+        cost_str = f" · {format_cost(cost, self._config.cost_currency)}"
         self.token_summary = (
             f"{format_token_count(t.input_tokens)} in · "
             f"{format_token_count(t.output_tokens)} out"

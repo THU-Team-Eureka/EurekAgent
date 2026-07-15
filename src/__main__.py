@@ -118,6 +118,7 @@ def main() -> None:
 
     if args.cost_limit is not None and args.no_cost_limit:
         parser.error("--cost-limit and --no-cost-limit cannot be used together")
+    _validate_token_pricing_args(parser, args)
     try:
         validate_gpu_request(args.gpus)
     except ValueError as exc:
@@ -328,6 +329,20 @@ def _check_time_budget_mode(
         )
 
 
+def _validate_token_pricing_args(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> None:
+    """Require explicit input/output token prices to be provided as a pair."""
+    has_input = args.input_token_price is not None
+    has_output = args.output_token_price is not None
+    if has_input == has_output:
+        return
+    parser.error(
+        "--input-token-price and --output-token-price must be set together. "
+        "Provide both prices, or omit both to use automatic pricing lookup."
+    )
+
+
 def _validate_time_budget(
     parser: argparse.ArgumentParser,
     label: str,
@@ -362,6 +377,15 @@ def _finalize_config(config: Config) -> Config:
     resolved_model = resolve_model_name(config.model)
     if resolved_model and config.model is None:
         config = dataclasses.replace(config, model=resolved_model)
+
+    if config.input_token_price is not None and config.output_token_price is not None:
+        overrides = {}
+        if config.cache_creation_token_price is None:
+            overrides["cache_creation_token_price"] = config.input_token_price
+        if config.cache_read_token_price is None:
+            overrides["cache_read_token_price"] = config.input_token_price
+        if overrides:
+            config = dataclasses.replace(config, **overrides)
 
     # Auto-fill missing prices from OpenRouter
     needs_pricing = (

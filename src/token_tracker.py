@@ -15,10 +15,29 @@ TOKEN_DIMS = (
     "cache_creation_input_tokens",
 )
 
+_CURRENCY_SYMBOLS = {
+    "USD": "$",
+    "CNY": "¥",
+    "RMB": "¥",
+    "GBP": "£",
+    "EUR": "€",
+}
+
 
 def _safe_int(value: int | None) -> int:
     """Convert a value to int, treating None as 0."""
     return value if value is not None else 0
+
+
+def currency_symbol(currency: str | None) -> str:
+    """Return a display symbol for common currency codes, defaulting to USD."""
+    return _CURRENCY_SYMBOLS.get((currency or "").upper(), "$")
+
+
+def format_cost(value: float | None, currency: str | None = "USD") -> str:
+    """Format a cost value with the configured currency symbol."""
+    symbol = currency_symbol(currency)
+    return f"{symbol}{value:.2f}" if value is not None else f"{symbol}N/A"
 
 
 @dataclass
@@ -240,11 +259,11 @@ def cost_stats(tracker: TokenTracker, currency: str = "USD") -> dict[str, float 
     }
 
 
-def format_token_summary(tracker: TokenTracker) -> str:
+def format_token_summary(tracker: TokenTracker, currency: str | None = "USD") -> str:
     """Format tracker totals for terminal/TUI display."""
     t = tracker.totals
     cost = tracker.calculate_cost()
-    cost_str = f" · ${cost:.2f}" if cost is not None else " · $N/A"
+    cost_str = f" · {format_cost(cost, currency)}"
     return (
         f"{format_token_count(t.input_tokens)} in · "
         f"{format_token_count(t.output_tokens)} out · "

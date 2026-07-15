@@ -209,7 +209,7 @@ def terminal_context(
         str(run_dir / "run_summary.json"),
     ]
 
-    token_summary = _token_summary(run_dir)
+    token_summary = _token_summary(run_dir, currency=final_state.get("cost_currency", "USD"))
     is_better = None
     if config and getattr(config, "hidden_eval_dir", ""):
         try:
@@ -272,14 +272,14 @@ def extract_score_summary(
     return best_score, best_aid, baseline_score, baseline_aid
 
 
-def _token_summary(run_dir: Path) -> str:
+def _token_summary(run_dir: Path, currency: str | None = "USD") -> str:
     try:
         tracker = get_token_tracker()
         if any(getattr(tracker.totals, dim) for dim in (
             "input_tokens", "output_tokens", "cache_read_input_tokens",
             "cache_creation_input_tokens",
         )):
-            return format_token_summary(tracker)
+            return format_token_summary(tracker, currency=currency)
     except RuntimeError:
         pass
     usage = aggregate_token_usage(run_dir / "workspace")

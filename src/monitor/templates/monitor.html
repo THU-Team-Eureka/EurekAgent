@@ -546,7 +546,7 @@ function buildHeader() {
   const tokenUsage = m.token_usage != null ? m.token_usage : '--';
   const tokenLimit = m.cost_limit != null ? m.cost_limit : '--';
   document.getElementById('token-usage').textContent = 'Usage: ' + tokenUsage;
-  document.getElementById('token-limit').textContent = 'Limit: ' + (typeof tokenLimit === 'number' ? '$' + tokenLimit.toFixed(2) : tokenLimit);
+  document.getElementById('token-limit').textContent = 'Limit: ' + (typeof tokenLimit === 'number' ? _formatCost(tokenLimit) : tokenLimit);
 
   // Time Budget — use pipeline created_at from metadata (preserved across resume)
   const createdStr = m.created_at;
@@ -705,6 +705,16 @@ function _tokenPrice(type, count) {
   if (rate == null) return null;
   return (count / 1000000) * rate;
 }
+
+function _currencySymbol(currency) {
+  const code = String(currency || '').toUpperCase();
+  return {USD:'$', CNY:'¥', RMB:'¥', GBP:'£', EUR:'€'}[code] || '$';
+}
+
+function _formatCost(value) {
+  return _currencySymbol(RUN.metadata.cost_currency) + value.toFixed(2);
+}
+
 function renderOverview() {
   const m = RUN.metadata;
   const s = RUN.summary;
@@ -754,14 +764,14 @@ function renderOverview() {
         <div class="space-y-3">
           <div class="flex justify-between items-end">
             <span class="text-xs uppercase tracking-widest font-headline" style="color:var(--accent-secondary)">Current Cost</span>
-            <span class="text-2xl font-bold font-mono" style="color:${costExceeded ? 'var(--status-error-text)' : 'var(--text-heading)'}">$${currentCost.toFixed(2)}</span>
+            <span class="text-2xl font-bold font-mono" style="color:${costExceeded ? 'var(--status-error-text)' : 'var(--text-heading)'}">${_formatCost(currentCost)}</span>
           </div>
           ${costLimit != null ? `<div class="h-4 rounded-full overflow-hidden" style="background:var(--main-bg)">
             <div class="h-full rounded-full" style="background:${barColor}; width:${costPct}%; box-shadow:${barShadow}; transition:width 0.5s ease, background 0.3s ease"></div>
           </div>
           <div class="flex justify-between items-center">
             <span class="text-xs font-mono" style="color:var(--text-muted)">${costPct.toFixed(1)}% used</span>
-            <span class="text-xs font-mono" style="color:var(--text-muted)">Limit: $${costLimit.toFixed(2)}</span>
+            <span class="text-xs font-mono" style="color:var(--text-muted)">Limit: ${_formatCost(costLimit)}</span>
           </div>` : `<div class="h-4 rounded-full overflow-hidden" style="background:var(--main-bg)">
             <div class="h-full rounded-full" style="background:var(--accent); width:100%; box-shadow:0 0 8px rgba(100,181,246,0.3)"></div>
           </div>
@@ -781,7 +791,7 @@ function renderOverview() {
         </div>
         <div class="flex-1 rounded-lg px-3 py-2 text-right" style="background:var(--main-bg); border:1px solid var(--border-subtle)">
           <div class="text-[10px] uppercase tracking-widest font-headline" style="color:var(--text-muted)">Remaining cost</div>
-          <div class="text-sm font-bold font-mono" style="color:${costExceeded ? 'var(--status-error-text)' : 'var(--accent-secondary)'}">${costLimit != null ? '$' + Math.max(0, costLimit - currentCost).toFixed(2) : 'N/A'}</div>
+          <div class="text-sm font-bold font-mono" style="color:${costExceeded ? 'var(--status-error-text)' : 'var(--accent-secondary)'}">${costLimit != null ? _formatCost(Math.max(0, costLimit - currentCost)) : 'N/A'}</div>
         </div>
       </div>
     </div>

@@ -364,7 +364,7 @@ def _load_metadata(run_dir: Path, *, summary: dict[str, Any] | None = None) -> d
     data.setdefault("cache_creation_input_tokens", token_usage.get("cache_creation_input_tokens"))
 
     # Build formatted token_usage string for the header display
-    from ..token_tracker import format_token_count
+    from ..token_tracker import format_cost, format_token_count
     inp = data.get("input_tokens") or 0
     out = data.get("output_tokens") or 0
     if inp or out:
@@ -385,7 +385,7 @@ def _load_metadata(run_dir: Path, *, summary: dict[str, Any] | None = None) -> d
             })
             cost = tracker.calculate_cost()
             if cost is not None:
-                cost_str = f" · ${cost:.2f}"
+                cost_str = f" · {format_cost(cost, data.get('cost_currency'))}"
         except Exception:
             pass
         data["token_usage"] = (

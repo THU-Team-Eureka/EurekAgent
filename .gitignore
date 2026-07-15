@@ -7,6 +7,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .python-version
+.DS_Store
 
 # Virtual environments
 .venv/
@@ -35,5 +36,7 @@ examples/kernel_engineering_trimul_loose/
 # Benchmark
 benchmark/
 examples/mle-bench/
+examples/kernelbench/
+examples/kernelbench_v1/
 cache/
 .claude/skills/eureka-mlebench-helper

@@ -22,7 +22,15 @@ from .artifacts import best_result_is_valid, validate_prepare_artifacts, validat
 from .config import Config
 from .graph import compile_graph
 from .gpu_policy import log_gpu_policy_warnings, resolve_gpu_policy
-from .history import current_manifest_path, resolve_loop_manifest, round_manifest_path
+from .history import (
+    append_to_history,
+    collect_round_entries,
+    current_manifest_path,
+    resolve_loop_manifest,
+    resolve_ranked_history_path,
+    round_manifest_path,
+)
+from .ranking import controller_is_better, rank_history
 from .workspace_setup import write_workspace_permissions, install_workspace_hooks
 from .monitor.server import set_run_dir as _monitor_set_run_dir
 from .runtime import (
@@ -793,6 +801,7 @@ def _reconstruct_state(
 ) -> dict[str, Any]:
     """Rebuild state from filesystem artifacts."""
     workspace = run_dir / "workspace"
+    _sync_interrupted_implement_results(run_dir, config)
     state = _build_initial_state(
         run_id=run_id,
         run_dir=run_dir,
@@ -886,6 +895,76 @@ def _reconstruct_state(
         state["next_stage"] = "end"
 
     return state
+
+
+def _sync_interrupted_implement_results(run_dir: Path, config: Config) -> None:
+    """Merge valid best_result.jsonl files when implement is interrupted."""
+    workspace = run_dir / "workspace"
+    pipeline_state_path = workspace / ".pipeline_state.json"
+    try:
+        raw = pipeline_state_path.read_text(encoding="utf-8").strip()
+        pipeline_state = json.loads(raw) if raw else {}
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(pipeline_state, dict):
+        return
+    if str(pipeline_state.get("current_stage") or "") != "implement":
+        return
+
+    try:
+        loop_index = int(pipeline_state.get("current_loop_index") or 0)
+    except (TypeError, ValueError):
+        return
+    if loop_index <= 0:
+        return
+
+    session_data_dir = run_dir / "session_data"
+    manifest_path = resolve_loop_manifest(
+        workspace, loop_index, session_data_dir=session_data_dir,
+    )
+    if manifest_path is None:
+        log.warning(
+            "Could not sync interrupted implement results for loop %d: no manifest",
+            loop_index,
+        )
+        return
+
+    try:
+        entries = collect_round_entries(
+            manifest_path, workspace_dir=workspace, loop_index=loop_index,
+        )
+    except Exception:
+        log.exception(
+            "Failed to collect interrupted implement results for loop %d",
+            loop_index,
+        )
+        return
+
+    completed_entries = [e for e in entries if e.get("status") == "completed"]
+    if not completed_entries:
+        return
+
+    history_path = resolve_ranked_history_path(workspace, for_write=True)
+    try:
+        append_to_history(history_path, new_entries=completed_entries)
+    except Exception:
+        log.exception(
+            "Failed to merge interrupted implement results for loop %d",
+            loop_index,
+        )
+        return
+
+    try:
+        rank_history(
+            workspace,
+            history_path=history_path,
+            is_better=controller_is_better(config),
+        )
+    except Exception:
+        log.exception(
+            "Merged interrupted implement results for loop %d but failed to rank them",
+            loop_index,
+        )
 
 
 def _loop_has_unresolved_implement(

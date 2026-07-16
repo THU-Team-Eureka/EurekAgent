@@ -17,7 +17,12 @@ from .docker.container import DockerContainer
 from .duration import parse_time_limit
 from .gpu_policy import validate_gpu_request
 from .monitor.server import start_monitor_server
-from .pipeline import resume_pipeline, run_pipeline
+from .pipeline import (
+    _resolve_new_run_id,
+    _validate_new_run_dir_available,
+    resume_pipeline,
+    run_pipeline,
+)
 from .pricing import fetch_model_pricing, resolve_model_name
 from .resume_preflight import MIN_RESUME_EXTRA_SECONDS
 from .runtime import set_docker_container
@@ -211,6 +216,7 @@ def main() -> None:
     _validate_time_budget(parser, "--implement-time-limit-per-session",
                           args.implement_time_limit_per_session, args.force_low_budget,
                           _MIN_IMPLEMENT_BUDGET_SECONDS)
+    _preflight_new_run_output(parser, args)
 
     config = _finalize_config(build_new_run_config(args))
     if not config.model:
@@ -232,6 +238,17 @@ def _start_monitor(
         runs_dir=runs_dir,
         port=args.monitor_port,
     )
+
+
+def _preflight_new_run_output(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> None:
+    try:
+        args.run_id = _resolve_new_run_id(args.run_id)
+        _validate_new_run_dir_available(Path(args.runs_dir) / args.run_id)
+    except (ValueError, FileExistsError) as exc:
+        parser.error(str(exc))
 
 
 def _run(

@@ -679,6 +679,12 @@ def _resolve_new_run_id(configured_run_id: str | None) -> str:
 
 def _ensure_new_run_dir(run_dir: Path) -> None:
     """Reserve a new run directory unless it already contains data."""
+    _validate_new_run_dir_available(run_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+
+def _validate_new_run_dir_available(run_dir: Path) -> None:
+    """Reject an existing non-empty run output directory."""
     if run_dir.exists():
         if not run_dir.is_dir():
             raise FileExistsError(
@@ -696,7 +702,6 @@ def _ensure_new_run_dir(run_dir: Path) -> None:
                 "Choose a different --run-id, resume it with --resume RUN_ID, "
                 "or clear the directory."
             )
-    run_dir.mkdir(parents=True, exist_ok=True)
 
 
 def _build_initial_state(

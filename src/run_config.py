@@ -37,9 +37,11 @@ _FIELD_BY_OPTION = {
     "--adapter-mode": "adapter_mode",
     "--skip-prepare": "skip_prepare",
     "--runs-dir": "runs_dir",
+    "--run-id": "run_id",
 }
 
 IMMUTABLE_CONFIG_FIELDS = {
+    "run_id",
     "docker_image",
     "docker_network",
     "adapter_mode",
@@ -114,6 +116,7 @@ def build_new_run_config(args: Any) -> Config:
             or defaults.implement_time_limit_per_session
         ),
         runs_dir=args.runs_dir,
+        run_id=getattr(args, "run_id", None),
         model=args.model,
         cost_limit=cost_limit,
         input_token_price=args.input_token_price,

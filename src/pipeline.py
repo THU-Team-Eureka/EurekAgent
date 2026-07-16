@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import platform
+import re
 import secrets
 import shutil
 import socket
@@ -133,9 +134,10 @@ async def run_pipeline(
     config: Config,
 ) -> dict[str, Any]:
     """Start a new run. Returns final state dict."""
-    run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_id = _resolve_new_run_id(config.run_id)
     runs_dir = Path(config.runs_dir) if hasattr(config, "runs_dir") else Path("runs")
     run_dir = runs_dir / run_id
+    _ensure_new_run_dir(run_dir)
     workspace = run_dir / "workspace"
 
     (workspace / "inputs").mkdir(parents=True, exist_ok=True)
@@ -658,6 +660,43 @@ def _remove_disallowed_gpu_locks(workspace: Path, allowed_gpu_ids: list[int]) ->
 
 
 # -- Internal helpers --
+
+
+def _resolve_new_run_id(configured_run_id: str | None) -> str:
+    """Return the run directory name for a new run."""
+    if configured_run_id is None:
+        return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    run_id = configured_run_id.strip()
+    if not run_id:
+        raise ValueError("--run-id must not be empty.")
+    if run_id in {".", ".."} or not re.fullmatch(r"[A-Za-z0-9_.-]+", run_id):
+        raise ValueError(
+            "--run-id may only contain letters, numbers, '.', '_', and '-'."
+        )
+    return run_id
+
+
+def _ensure_new_run_dir(run_dir: Path) -> None:
+    """Reserve a new run directory unless it already contains data."""
+    if run_dir.exists():
+        if not run_dir.is_dir():
+            raise FileExistsError(
+                f"Run output path exists and is not a directory: {run_dir}"
+            )
+        try:
+            has_contents = any(run_dir.iterdir())
+        except OSError as exc:
+            raise FileExistsError(
+                f"Run output directory is not readable: {run_dir}"
+            ) from exc
+        if has_contents:
+            raise FileExistsError(
+                f"Run output directory already exists and is not empty: {run_dir}. "
+                "Choose a different --run-id, resume it with --resume RUN_ID, "
+                "or clear the directory."
+            )
+    run_dir.mkdir(parents=True, exist_ok=True)
 
 
 def _build_initial_state(

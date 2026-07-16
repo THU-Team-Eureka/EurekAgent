@@ -13,6 +13,7 @@ class Config:
     implement_time_limit_per_session: str = "120 minutes"
     claude_command: str = "claude"
     runs_dir: str = "runs"
+    run_id: str | None = None
     # Cost tracking.
     cost_limit: float | None = None
     input_token_price: float | None = None

@@ -48,6 +48,13 @@ def main() -> None:
     parser.add_argument("--problem", type=str, help="Path to problem description file")
     parser.add_argument("--initial-code", type=str, default=None)
     parser.add_argument("--runs-dir", type=str, default="runs")
+    parser.add_argument(
+        "--run-id", type=str, default=None,
+        help=(
+            "Optional run ID/output directory name for a new run. "
+            "Defaults to a timestamp."
+        ),
+    )
     parser.add_argument("--max-loops", type=int, default=None)
     parser.add_argument("--max-num-approaches", type=int, default=None)
     parser.add_argument(
@@ -129,6 +136,8 @@ def main() -> None:
 
     if args.cost_limit is not None and args.no_cost_limit:
         parser.error("--cost-limit and --no-cost-limit cannot be used together")
+    if args.resume and args.run_id:
+        parser.error("--run-id only applies to new runs; use --resume RUN_ID for existing runs")
     _validate_token_pricing_args(parser, args)
     try:
         validate_gpu_request(args.gpus)

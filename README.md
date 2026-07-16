@@ -223,6 +223,7 @@ A convenience script. Must pass at minimum:
 - `--submission-format`: path to SUBMISSION_FORMAT.md
 - `--model`: the model to use
 - Time budget flags: `--propose-time-limit-per-session` + `--implement-time-limit-per-session`
+- Optional run output name: `--run-id` (defaults to a timestamp)
 
 Example:
 
@@ -230,6 +231,7 @@ Example:
 cd "$(dirname "$0")/../.."
 
 uv run python -m src \
+    --run-id my_problem_run_1 \
     --model glm-5.1 \
     --problem examples/my_problem/INSTRUCTION.md \
     --hidden-eval-dir examples/my_problem/hidden_eval_dir \

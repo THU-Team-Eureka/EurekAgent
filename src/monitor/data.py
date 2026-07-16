@@ -392,9 +392,15 @@ def _load_metadata(run_dir: Path, *, summary: dict[str, Any] | None = None) -> d
                 "cache_read_input_tokens": data.get("cache_read_input_tokens") or 0,
                 "cache_creation_input_tokens": data.get("cache_creation_input_tokens") or 0,
             })
-            cost = tracker.calculate_cost()
-            if cost is not None:
-                cost_str = f" · {format_cost(cost, data.get('cost_currency'))}"
+            breakdown = tracker.calculate_cost_breakdown()
+            if breakdown is not None:
+                data.setdefault("total_cost", breakdown.total)
+                data.setdefault("pricing_mode", "tiered" if data.get("token_price_tiers") else "scalar")
+                data.setdefault("total_input_cost", breakdown.input_cost)
+                data.setdefault("total_cache_creation_cost", breakdown.cache_creation_cost)
+                data.setdefault("total_cache_read_cost", breakdown.cache_read_cost)
+                data.setdefault("total_output_cost", breakdown.output_cost)
+                cost_str = f" · {format_cost(breakdown.total, data.get('cost_currency'))}"
         except Exception:
             pass
         data["token_usage"] = (

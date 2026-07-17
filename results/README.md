@@ -51,3 +51,13 @@ TriMul results are under `results/kernel_engineering_trimul/<approach>/result.js
 The reported table uses the strict TTT-Discover TriMul evaluator in `examples/kernel_engineering_trimul_strict/hidden_eval_dir/` on an NVIDIA A100-SXM4-80GB. We used 3 warmup rounds (discarded), then 10 measured rounds with deterministic shuffle seed `20260527`. Each measured score is the evaluator geometric mean over 7 benchmark cases; the table reports median and mean over the 10 measured scores.
 
 To rerun one kernel, extract `solution` to a submission JSON and submit it through the strict evaluator setup used by `examples/kernel_engineering_trimul_strict`. The JSONL metadata records all measured scores, median, mean, per-round correctness counts, and the source ranking file.
+
+## Recompute MLE-Bench Scores
+
+MLE-Bench results are under `results/mle/<task>/result.jsonl`, one approach per task, with the same minimal top-level shape as the other categories (`task`, `score`, `score_type`, `evaluator`, `source_result`, `solution`) plus a `grader` block for the official test-set score. Each `solution` references the copied submission CSVs under `results/mle/<task>/submissions/` (both `test_*` and `valid_*`) with a `*_sha256` for each. 
+
+
+Each record carries **two** scores for the same submission. Do not confuse them:
+
+- **`score`** — local validation-set (hold-out CV) score, from the approach's `best_result.jsonl` (`score` field). This is what the agent optimized against during the run; it is optimistic relative to the leaderboard.
+- **`grader.score`** — official score on the **hidden test set**, produced by the **mlebench grader** (grading report at `results/mle/2026-05-30T15-07-11-GMT_grading_report.json`), recorded inside the `grader` block. This is the authoritative, leaderboard-style result and the basis for medals.

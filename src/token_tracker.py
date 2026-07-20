@@ -230,8 +230,6 @@ class TokenTracker:
         """Calculate total cost and per-token-class costs."""
         if self._price_tiers:
             usages = self._billable_usages(session_key)
-            if not usages and not self._has_any_scalar_price():
-                return None
             return self._tiered_cost_breakdown(usages)
 
         if self._input_price is None and self._output_price is None and self._cache_creation_price is None and self._cache_read_price is None:
@@ -297,6 +295,11 @@ class TokenTracker:
                 self._output_price,
             )
         )
+
+    @property
+    def has_pricing(self) -> bool:
+        """Return True when cost can be calculated, including zero-token cost."""
+        return bool(self._price_tiers) or self._has_any_scalar_price()
 
     def _tiered_cost_breakdown(self, usages: list[BillableUsage]) -> CostBreakdown:
         input_cost = 0.0

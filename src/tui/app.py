@@ -625,6 +625,8 @@ class EurekAgentApp(App):
             return
         t = self._token_tracker.totals
         cost = self._token_tracker.calculate_cost()
+        if cost is None and self._token_tracker.has_pricing:
+            cost = 0.0
         cost_str = f" · {format_cost(cost, self._config.cost_currency)}"
         self.token_summary = (
             f"{format_token_count(t.input_tokens)} in · "

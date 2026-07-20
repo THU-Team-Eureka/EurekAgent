@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +30,7 @@ from ..runtime import (
     set_user_message_queue,
 )
 from ..token_tracker import (
-    TokenTracker, format_cost, format_token_count, hydrate_tracker_from_run,
+    TokenTracker, cost_stats, format_cost, format_token_count, hydrate_tracker_from_run,
     scan_jsonl_usage_since,
 )
 from .screens.overview import OverviewScreen
@@ -105,6 +106,7 @@ class EurekAgentApp(App):
         self._session_init_seen: set[str] = set()
         # Token tracking
         self._token_tracker: Any = None  # TokenTracker, set in _start_pipeline
+        self._last_monitor_token_event_at = 0.0
         self._session_actual_ids: dict[str, str] = {}  # session_key -> Claude session_id
         self._agent_home_offsets: dict[str, int] = {}  # session_key -> file read offset
         self._jsonl_baseline_sizes: dict[Path, int] = {}
@@ -631,12 +633,24 @@ class EurekAgentApp(App):
         )
         # Write token usage to pipeline state so the monitor can display it.
         from ..runtime import write_pipeline_state
-        write_pipeline_state(token_usage={
-            "input_tokens": t.input_tokens,
-            "output_tokens": t.output_tokens,
-            "cache_read_input_tokens": t.cache_read_input_tokens,
-            "cache_creation_input_tokens": t.cache_creation_input_tokens,
-        })
+        cost_payload = (
+            cost_stats(self._token_tracker, currency=self._config.cost_currency)
+            if cost is not None
+            else None
+        )
+        write_pipeline_state(
+            token_usage={
+                "input_tokens": t.input_tokens,
+                "output_tokens": t.output_tokens,
+                "cache_read_input_tokens": t.cache_read_input_tokens,
+                "cache_creation_input_tokens": t.cache_creation_input_tokens,
+            },
+            cost=cost_payload,
+        )
+        now = time.monotonic()
+        if now - self._last_monitor_token_event_at >= 0.5:
+            self._last_monitor_token_event_at = now
+            self._push_monitor_event("data_changed", {"reason": "token_usage"})
 
     def _update_approach_token(self, session_key: str) -> None:
         """Update the approach list with per-approach token info.

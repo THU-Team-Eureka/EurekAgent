@@ -356,26 +356,49 @@ def _load_metadata(run_dir: Path, *, summary: dict[str, Any] | None = None) -> d
             else:
                 current_stage = "prepare"
 
-    # Token usage from pipeline state (live), summary, or aggregated
-    token_usage = pipeline_state.get("token_usage") or summary.get("token_usage", {})
-    data.setdefault("input_tokens", token_usage.get("input_tokens"))
-    data.setdefault("output_tokens", token_usage.get("output_tokens"))
-    data.setdefault("cache_read_input_tokens", token_usage.get("cache_read_input_tokens"))
-    data.setdefault("cache_creation_input_tokens", token_usage.get("cache_creation_input_tokens"))
-    if isinstance(summary.get("cost"), dict):
-        cost_summary = summary["cost"]
-        data.setdefault("total_cost", cost_summary.get("total_cost"))
-        data.setdefault("pricing_mode", cost_summary.get("pricing_mode"))
-        data.setdefault("total_input_cost", cost_summary.get("total_input_cost"))
-        data.setdefault("total_cache_creation_cost", cost_summary.get("total_cache_creation_cost"))
-        data.setdefault("total_cache_read_cost", cost_summary.get("total_cache_read_cost"))
-        data.setdefault("total_output_cost", cost_summary.get("total_output_cost"))
+    # Token/cost usage from pipeline state (live), summary, or calculated fallback.
+    # Live values must override run_summary.json, which is only written at
+    # terminal checkpoints and can be stale during active runs.
+    live_token_usage = pipeline_state.get("token_usage")
+    token_usage = live_token_usage if isinstance(live_token_usage, dict) else summary.get("token_usage", {})
+    if isinstance(token_usage, dict):
+        data["input_tokens"] = token_usage.get("input_tokens")
+        data["output_tokens"] = token_usage.get("output_tokens")
+        data["cache_read_input_tokens"] = token_usage.get("cache_read_input_tokens")
+        data["cache_creation_input_tokens"] = token_usage.get("cache_creation_input_tokens")
+
+    live_cost = pipeline_state.get("cost")
+    cost_data = (
+        live_cost if isinstance(live_cost, dict)
+        else None if "cost" in pipeline_state
+        else summary.get("cost")
+    )
+    if isinstance(cost_data, dict):
+        data["total_cost"] = cost_data.get("total_cost")
+        data["pricing_mode"] = cost_data.get("pricing_mode")
+        data["total_input_cost"] = cost_data.get("total_input_cost")
+        data["total_cache_creation_cost"] = cost_data.get("total_cache_creation_cost")
+        data["total_cache_read_cost"] = cost_data.get("total_cache_read_cost")
+        data["total_output_cost"] = cost_data.get("total_output_cost")
 
     # Build formatted token_usage string for the header display
     from ..token_tracker import format_cost, format_token_count
     inp = data.get("input_tokens") or 0
     out = data.get("output_tokens") or 0
-    if inp or out:
+    cache_read = data.get("cache_read_input_tokens") or 0
+    cache_creation = data.get("cache_creation_input_tokens") or 0
+    has_any_tokens = bool(inp or out or cache_read or cache_creation)
+    has_pricing = bool(data.get("token_price_tiers")) or any(
+        data.get(key) is not None
+        for key in (
+            "input_token_price",
+            "cache_creation_token_price",
+            "cache_read_token_price",
+            "output_token_price",
+        )
+    )
+    has_cost = data.get("total_cost") is not None
+    if has_any_tokens or has_pricing or has_cost:
         cost_str = ""
         try:
             from ..token_tracker import TokenTracker
@@ -389,18 +412,30 @@ def _load_metadata(run_dir: Path, *, summary: dict[str, Any] | None = None) -> d
             tracker.update_session("_total", {
                 "input_tokens": inp,
                 "output_tokens": out,
-                "cache_read_input_tokens": data.get("cache_read_input_tokens") or 0,
-                "cache_creation_input_tokens": data.get("cache_creation_input_tokens") or 0,
+                "cache_read_input_tokens": cache_read,
+                "cache_creation_input_tokens": cache_creation,
             })
             breakdown = tracker.calculate_cost_breakdown()
             if breakdown is not None:
-                data.setdefault("total_cost", breakdown.total)
-                data.setdefault("pricing_mode", "tiered" if data.get("token_price_tiers") else "scalar")
-                data.setdefault("total_input_cost", breakdown.input_cost)
-                data.setdefault("total_cache_creation_cost", breakdown.cache_creation_cost)
-                data.setdefault("total_cache_read_cost", breakdown.cache_read_cost)
-                data.setdefault("total_output_cost", breakdown.output_cost)
-                cost_str = f" · {format_cost(breakdown.total, data.get('cost_currency'))}"
+                # Prefer TUI-authored live cost when available. Otherwise,
+                # calculate from the best token counters we have. This keeps
+                # older runs and non-TUI invocations displayable.
+                should_use_calculated_cost = (
+                    not isinstance(cost_data, dict)
+                    or (
+                        pipeline_status == "running"
+                        and isinstance(live_token_usage, dict)
+                        and not isinstance(live_cost, dict)
+                    )
+                )
+                if should_use_calculated_cost:
+                    data["total_cost"] = breakdown.total
+                    data["pricing_mode"] = "tiered" if data.get("token_price_tiers") else "scalar"
+                    data["total_input_cost"] = breakdown.input_cost
+                    data["total_cache_creation_cost"] = breakdown.cache_creation_cost
+                    data["total_cache_read_cost"] = breakdown.cache_read_cost
+                    data["total_output_cost"] = breakdown.output_cost
+                cost_str = f" · {format_cost(data.get('total_cost'), data.get('cost_currency'))}"
         except Exception:
             pass
         data["token_usage"] = (

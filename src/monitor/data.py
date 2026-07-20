@@ -658,6 +658,11 @@ def _load_approaches(workspace: Path, loop_idx: int, *, detail_level: str = "ful
         manifest_path = workspace / "round_state" / "current_round_approaches.json"
     manifest = _read_json_or_jsonl(manifest_path)
     manifest_approaches = manifest.get("approaches", []) if manifest else []
+    manifest_ids = {
+        str(a.get("id", a.get("approach_id", ""))).strip()
+        for a in manifest_approaches
+        if isinstance(a, dict) and str(a.get("id", a.get("approach_id", ""))).strip()
+    }
 
     # Build lookup by id
     approach_meta: dict[str, dict] = {}
@@ -684,6 +689,8 @@ def _load_approaches(workspace: Path, loop_idx: int, *, detail_level: str = "ful
                 continue
             aid = ad.name
             if not _approach_belongs_to_loop(aid, loop_idx):
+                continue
+            if manifest_ids and aid not in manifest_ids:
                 continue
             meta = approach_meta.get(aid, {})
             entry = next((e for e in ranked_entries if e.get("approach_id") == aid), None)

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .artifacts import best_result_is_valid, validate_prepare_artifacts, validate_propose_artifacts
-from .history import current_manifest_path, round_manifest_path
+from .history import current_manifest_path, loop_manifest_path, read_manifest, round_manifest_path
 from .session_map import loop_implement_has_aborted_sessions
 from .token_tracker import find_transcripts_dir
 
@@ -41,7 +41,22 @@ def scan_stage_results(workspace: Path) -> dict[int, dict[str, dict[str, Any]]]:
         if match:
             loop_approaches.setdefault(int(match.group(1)), []).append(approach_dir)
 
+    round_state = workspace / "round_state"
+    if round_state.is_dir():
+        manifest_paths = (
+            list(round_state.glob("round_*_approaches.jsonl"))
+            + list(round_state.glob("loop_*_approaches.jsonl"))
+        )
+        for manifest_path in manifest_paths:
+            match = re.match(r"^(?:round|loop)_(\d+)_approaches\.jsonl$", manifest_path.name)
+            if match:
+                loop_approaches.setdefault(int(match.group(1)), [])
+
     for loop_idx, approach_dirs in loop_approaches.items():
+        manifest_ids = _manifest_approach_ids(workspace, loop_idx)
+        if manifest_ids is not None:
+            approach_dirs = [details_dir / aid for aid in manifest_ids]
+
         propose_ready = _propose_ready(workspace, loop_idx)
         if propose_ready:
             results.setdefault(loop_idx, {})["propose"] = {"status": "ready"}
@@ -169,3 +184,23 @@ def _propose_ready(workspace: Path, loop_idx: int) -> bool:
         ).ok:
             return True
     return False
+
+
+def _manifest_approach_ids(workspace: Path, loop_idx: int) -> list[str] | None:
+    """Return the round manifest's approach ids, or None for legacy fallback."""
+    for manifest_path in (
+        round_manifest_path(workspace, loop_idx),
+        loop_manifest_path(workspace, loop_idx),
+        current_manifest_path(workspace),
+    ):
+        manifest = read_manifest(manifest_path)
+        if not manifest:
+            continue
+        ids = [
+            str(a.get("id", a.get("approach_id", ""))).strip()
+            for a in manifest.get("approaches", [])
+            if isinstance(a, dict) and str(a.get("id", a.get("approach_id", ""))).strip()
+        ]
+        if ids and all(aid.startswith(f"round_{loop_idx}_") for aid in ids):
+            return ids
+    return None

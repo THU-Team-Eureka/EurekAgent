@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from .config import Config
+from .history import read_manifest
+from .token_tracker import TokenTracker, aggregate_token_usage
 
 
 _MISSING = object()
@@ -167,7 +169,7 @@ def build_resume_config(
             values[field_name] = saved
 
     _validate_immutable_input_paths(args, metadata, rejected)
-    _validate_resume_constraints(run_dir, values, rejected)
+    _validate_resume_constraints(run_dir, values, original, explicit_fields, rejected)
 
     for field_name in sorted(MUTABLE_CONFIG_FIELDS):
         saved = original.get(field_name, _MISSING)
@@ -258,6 +260,8 @@ def _validate_immutable_input_paths(
 def _validate_resume_constraints(
     run_dir: Path,
     values: dict[str, Any],
+    original: dict[str, Any],
+    explicit_fields: set[str],
     rejected: list[str],
 ) -> None:
     current_loop = _current_resumable_loop(run_dir)
@@ -269,14 +273,45 @@ def _validate_resume_constraints(
             "max_loops cannot be below the current/resumable loop."
         )
 
-    manifest_count = _max_manifest_approach_count(run_dir)
-    max_num_approaches = int(values.get("max_num_approaches") or 0)
-    if manifest_count and max_num_approaches < manifest_count:
-        rejected.append(
-            "Cannot change constrained field max_num_approaches: "
-            f"old/current minimum={manifest_count!r}, new={max_num_approaches!r}; "
-            "max_num_approaches cannot be below existing manifest approach count."
-        )
+    if _past_prepare_stage(run_dir):
+        saved = original.get("max_num_approaches", _MISSING)
+        if saved is _MISSING:
+            rejected.append(
+                "Cannot validate constrained field max_num_approaches: original "
+                "run metadata is missing this field."
+            )
+            return
+        if "max_num_approaches" not in explicit_fields:
+            values["max_num_approaches"] = saved
+            return
+        max_num_approaches = int(values.get("max_num_approaches") or 0)
+        saved_int = int(saved)
+        if max_num_approaches != saved_int:
+            rejected.append(
+                "Cannot change constrained field max_num_approaches after "
+                "propose has started: "
+                f"old={saved_int!r}, new={max_num_approaches!r}. "
+                f"Update the resume script to use --max-num-approaches {saved_int}."
+            )
+    elif "max_num_approaches" not in explicit_fields:
+        saved = original.get("max_num_approaches", _MISSING)
+        if saved is not _MISSING:
+            values["max_num_approaches"] = saved
+
+
+def validate_resume_cost_floor(run_dir: Path, config: Config) -> None:
+    """Reject resume configs whose cost limit is below already-spent cost."""
+    if config.cost_limit is None:
+        return
+    spent = _spent_cost(run_dir, config)
+    if spent is None or config.cost_limit >= spent:
+        return
+    raise ResumeConfigError([
+        "Cannot change constrained field cost_limit: "
+        f"already spent={spent:.6g} {config.cost_currency}, "
+        f"new={config.cost_limit:.6g}. "
+        "Increase --cost-limit or use --no-cost-limit."
+    ])
 
 
 def _current_resumable_loop(run_dir: Path) -> int:
@@ -311,6 +346,31 @@ def _current_resumable_loop(run_dir: Path) -> int:
     return max(loops) if loops else 0
 
 
+def _past_prepare_stage(run_dir: Path) -> bool:
+    state = _read_json(run_dir / "workspace" / ".pipeline_state.json")
+    if isinstance(state, dict):
+        loop_index = state.get("current_loop_index")
+        if isinstance(loop_index, int) and loop_index > 0:
+            return True
+        if state.get("current_stage") in ("propose", "implement"):
+            return True
+
+    if _max_manifest_approach_count(run_dir) > 0:
+        return True
+
+    maps_dir = run_dir / "session_data" / "session_maps"
+    if maps_dir.is_dir():
+        for path in maps_dir.glob("*_session_map.json"):
+            payload = _read_json(path)
+            if (
+                isinstance(payload, dict)
+                and payload.get("stage") in ("propose", "implement")
+            ):
+                return True
+
+    return False
+
+
 def _max_manifest_approach_count(run_dir: Path) -> int:
     round_state = run_dir / "workspace" / "round_state"
     if not round_state.is_dir():
@@ -326,18 +386,78 @@ def _max_manifest_approach_count(run_dir: Path) -> int:
 
 
 def _manifest_approach_count(path: Path) -> int:
-    count = 0
+    payload = read_manifest(path)
+    if not payload:
+        return 0
+    approaches = payload.get("approaches")
+    return len(approaches) if isinstance(approaches, list) else 0
+
+
+def _spent_cost(run_dir: Path, config: Config) -> float | None:
+    costs: list[float] = []
+    for path in (
+        run_dir / "workspace" / ".pipeline_state.json",
+        run_dir / "run_summary.json",
+    ):
+        payload = _read_json(path)
+        if isinstance(payload, dict):
+            cost = _total_cost(payload.get("cost"))
+            if cost is not None:
+                costs.append(cost)
+            calculated = _cost_from_usage(payload.get("token_usage"), config)
+            if calculated is not None:
+                costs.append(calculated)
+
+    if not costs:
+        calculated = _cost_from_usage(aggregate_token_usage(run_dir / "workspace"), config)
+        if calculated is not None:
+            costs.append(calculated)
+
+    return max(costs) if costs else None
+
+
+def _cost_from_usage(usage: Any, config: Config) -> float | None:
+    if not _valid_usage(usage):
+        return None
+    tracker = TokenTracker(
+        _input_price=config.input_token_price,
+        _cache_creation_price=config.cache_creation_token_price,
+        _cache_read_price=config.cache_read_token_price,
+        _output_price=config.output_token_price,
+        _price_tiers=config.token_price_tiers,
+    )
+    tracker.update_session("_resume_prior", usage)
+    return tracker.calculate_cost()
+
+
+def _valid_usage(usage: Any) -> bool:
+    if not isinstance(usage, dict):
+        return False
+    return any(
+        isinstance(usage.get(key), int) and usage.get(key, 0) > 0
+        for key in (
+            "input_tokens",
+            "output_tokens",
+            "cache_read_input_tokens",
+            "cache_creation_input_tokens",
+        )
+    )
+
+
+def _total_cost(value: Any) -> float | None:
+    if not isinstance(value, dict):
+        return None
+    cost = value.get("total_cost")
+    if not isinstance(cost, (int, float)):
+        return None
+    return float(cost)
+
+
+def _read_json(path: Path) -> Any:
     try:
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            payload = json.loads(line)
-            approaches = payload.get("approaches")
-            if isinstance(approaches, list):
-                count = max(count, len(approaches))
+        return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return count
-    return count
+        return None
 
 
 def _values_equal(field_name: str, old: Any, new: Any) -> bool:

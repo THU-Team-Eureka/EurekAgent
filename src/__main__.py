@@ -31,6 +31,7 @@ from .run_config import (
     build_new_run_config,
     build_resume_config,
     explicit_config_fields,
+    validate_resume_cost_floor,
 )
 
 
@@ -159,6 +160,10 @@ def main() -> None:
         except ResumeConfigError as exc:
             raise SystemExit(f"Resume configuration is incompatible:\n{exc}") from exc
         config = _finalize_config(resolved.config)
+        try:
+            validate_resume_cost_floor(Path(args.runs_dir) / args.resume, config)
+        except ResumeConfigError as exc:
+            raise SystemExit(f"Resume configuration is incompatible:\n{exc}") from exc
         _setup_docker_container(config)
         _run(args, config, resume=True)
         return

@@ -361,7 +361,7 @@ async def resume_pipeline(
     # On resume, CLI time limits are authoritative (user may shorten budgets).
     workspace = run_dir / "workspace"
 
-    state = _reconstruct_state(run_id, run_dir, config)
+    state = _reconstruct_state(run_id, run_dir, config, allow_terminal_resume=True)
     preflight = check_resume_preflight(run_dir, state, config)
     if preflight.needs_extra_time:
         if resume_extra_seconds is None:
@@ -842,6 +842,8 @@ def _reconstruct_state(
     run_id: str,
     run_dir: Path,
     config: Config,
+    *,
+    allow_terminal_resume: bool = False,
 ) -> dict[str, Any]:
     """Rebuild state from filesystem artifacts."""
     workspace = run_dir / "workspace"
@@ -935,6 +937,8 @@ def _reconstruct_state(
 
     if latest_index < config.max_loops:
         state["next_stage"] = "propose"
+    elif allow_terminal_resume:
+        state["next_stage"] = "implement"
     else:
         state["next_stage"] = "end"
 

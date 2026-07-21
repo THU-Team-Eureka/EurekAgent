@@ -176,7 +176,9 @@ class EurekAgentApp(App):
                 run_dir = Path(self._config.runs_dir) / self._resume_id
                 hydrate_tracker_from_run(run_dir, self._token_tracker)
                 self._jsonl_baseline_sizes = self._snapshot_existing_jsonl(run_dir / "workspace")
-                state = _reconstruct_state(self._resume_id, run_dir, self._config)
+                state = _reconstruct_state(
+                    self._resume_id, run_dir, self._config, allow_terminal_resume=True,
+                )
                 self._hydrate_resume_overview(state)
                 preflight = check_resume_preflight(run_dir, state, self._config)
                 if preflight.needs_extra_time and self._resume_extra_seconds is None:

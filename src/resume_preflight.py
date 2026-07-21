@@ -25,6 +25,7 @@ class ResumePreflightResult:
     elapsed_seconds: float = 0.0
     budget_seconds: float = 0.0
     missing_artifacts: list[str] = field(default_factory=list)
+    details_label: str = "Missing"
     session_map_paths: list[Path] = field(default_factory=list)
     message: str = ""
 
@@ -71,7 +72,12 @@ def check_resume_preflight(
             )
     elif next_stage == "implement":
         loop_index = int(state.get("loop_index", 0) or 0)
-        result = _check_implement(run_dir, loop_index, config)
+        include_completed = state.get("implement_status") in (
+            "all_succeeded", "partial_succeeded",
+        )
+        result = _check_implement(
+            run_dir, loop_index, config, include_completed=include_completed,
+        )
         if result.needs_extra_time:
             return result
     return ResumePreflightResult(ok=True)
@@ -109,6 +115,8 @@ def _check_implement(
     run_dir: Path,
     loop_index: int,
     config: Any,
+    *,
+    include_completed: bool = False,
 ) -> ResumePreflightResult:
     workspace = run_dir / "workspace"
     session_data_dir = run_dir / "session_data"
@@ -127,7 +135,10 @@ def _check_implement(
             continue
         if payload.get("stage") != "implement":
             continue
-        if payload.get("status") not in ("aborted", "running"):
+        status = payload.get("status")
+        if status not in ("aborted", "running") and not (
+            include_completed and status == "completed"
+        ):
             continue
         elapsed = float(payload.get("elapsed_seconds") or 0)
         budget = effective_resume_budget(payload, config.implement_time_limit_per_session)
@@ -141,11 +152,17 @@ def _check_implement(
             workspace, loop_index, manifest_path,
             max_num_approaches=config.max_num_approaches,
         )
-        if approach_id in set(validation.metadata.get("succeeded_ids") or []):
+        if (
+            not include_completed
+            and approach_id in set(validation.metadata.get("succeeded_ids") or [])
+        ):
             continue
         blocked_paths.append(path)
-        result_path = workspace / "approach_details" / approach_id / "best_result.jsonl"
-        missing.append(str(result_path))
+        if include_completed:
+            missing.append(str(path))
+        else:
+            result_path = workspace / "approach_details" / approach_id / "best_result.jsonl"
+            missing.append(str(result_path))
         max_elapsed = max(max_elapsed, elapsed)
         max_budget = max(max_budget, budget)
 
@@ -159,10 +176,13 @@ def _check_implement(
         elapsed_seconds=max_elapsed,
         budget_seconds=max_budget,
         missing_artifacts=missing,
+        details_label="Affected sessions" if include_completed else "Missing",
         session_map_paths=blocked_paths,
         message=(
+            "The previous implement stage already used its full time budget. "
+            "Add more time to continue this round."
+        ) if include_completed else (
             "The previous implement stage used its full time budget but "
             "one or more approaches did not write a valid best_result."
         ),
     )
-

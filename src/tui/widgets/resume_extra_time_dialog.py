@@ -53,6 +53,7 @@ class ResumeExtraTimeDialog(ModalScreen[float | None]):
         more = len(self._result.missing_artifacts) - 3
         if more > 0:
             missing += f"\n  ... and {more} more"
+        details_label = self._result.details_label.strip() or "Details"
         yield Vertical(
             Label("[b]Resume Needs Extra Time[/b]"),
             Static(
@@ -65,7 +66,7 @@ class ResumeExtraTimeDialog(ModalScreen[float | None]):
             ),
             Static(_wrap_line(self._result.message), classes="wrapped"),
             Static(
-                f"Missing:\n{missing}" if missing else "Missing required artifact.",
+                f"{details_label}:\n{missing}" if missing else f"{details_label}: none",
                 classes="wrapped",
             ),
             Label(f"Extra minutes (minimum {min_minutes}):"),

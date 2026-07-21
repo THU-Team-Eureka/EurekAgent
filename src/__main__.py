@@ -23,7 +23,14 @@ from .pipeline import (
     resume_pipeline,
     run_pipeline,
 )
-from .pricing import fetch_model_pricing, resolve_model_name
+from .pricing import (
+    fetch_model_pricing,
+    has_billable_pricing,
+    missing_pricing_message,
+    normalize_scalar_pricing,
+    normalize_token_price_tiers,
+    resolve_model_name,
+)
 from .resume_preflight import MIN_RESUME_EXTRA_SECONDS
 from .runtime import set_docker_container
 from .run_config import (
@@ -160,6 +167,7 @@ def main() -> None:
         except ResumeConfigError as exc:
             raise SystemExit(f"Resume configuration is incompatible:\n{exc}") from exc
         config = _finalize_config(resolved.config)
+        _confirm_missing_pricing_if_headless(args, config)
         try:
             validate_resume_cost_floor(Path(args.runs_dir) / args.resume, config)
         except ResumeConfigError as exc:
@@ -226,6 +234,7 @@ def main() -> None:
     config = _finalize_config(build_new_run_config(args))
     if not config.model:
         parser.error("Required argument missing: --model")
+    _confirm_missing_pricing_if_headless(args, config)
     _setup_docker_container(config)
 
     _run(args, config, resume=False, problem=problem, initial_code=initial_code)
@@ -406,7 +415,7 @@ def _parse_token_price_tiers(
     for index, tier in enumerate(payload):
         if not isinstance(tier, dict):
             parser.error(f"--token-price-tiers[{index}] must be an object")
-        for key in ("max_context_tokens", "input", "output", "cache_read"):
+        for key in ("max_context_tokens", "input", "output"):
             if key not in tier:
                 parser.error(f"--token-price-tiers[{index}] is missing required key '{key}'")
 
@@ -429,7 +438,7 @@ def _parse_token_price_tiers(
         }
         for key in ("input", "output", "cache_read", "cache_creation"):
             value = tier.get(key)
-            if key == "cache_creation" and value is None:
+            if key in ("cache_read", "cache_creation") and value is None:
                 value = tier.get("input")
             if not isinstance(value, (int, float)) or value < 0:
                 parser.error(f"--token-price-tiers[{index}].{key} must be a non-negative number")
@@ -478,45 +487,85 @@ def _finalize_config(config: Config) -> Config:
     if resolved_model and config.model is None:
         config = dataclasses.replace(config, model=resolved_model)
 
-    if config.token_price_tiers:
-        return config
+    tiers = normalize_token_price_tiers(config.token_price_tiers)
+    if tiers:
+        return dataclasses.replace(config, token_price_tiers=tiers)
 
-    if config.input_token_price is not None and config.output_token_price is not None:
-        overrides = {}
-        if config.cache_creation_token_price is None:
-            overrides["cache_creation_token_price"] = config.input_token_price
-        if config.cache_read_token_price is None:
-            overrides["cache_read_token_price"] = config.input_token_price
-        if overrides:
-            config = dataclasses.replace(config, **overrides)
+    scalar = normalize_scalar_pricing(
+        input_price=config.input_token_price,
+        output_price=config.output_token_price,
+        cache_creation_price=config.cache_creation_token_price,
+        cache_read_price=config.cache_read_token_price,
+    )
+    if scalar:
+        return dataclasses.replace(
+            config,
+            input_token_price=scalar["input"],
+            cache_creation_token_price=scalar["cache_creation"],
+            cache_read_token_price=scalar["cache_read"],
+            output_token_price=scalar["output"],
+        )
 
     # Auto-fill missing prices from OpenRouter
-    needs_pricing = (
-        config.input_token_price is None
-        or config.cache_creation_token_price is None
-        or config.cache_read_token_price is None
-        or config.output_token_price is None
-    )
-    if needs_pricing and config.model:
+    if config.model:
         prices = fetch_model_pricing(config.model)
         if prices:
-            overrides = {}
-            if config.input_token_price is None and prices.get("input_price") is not None:
-                overrides["input_token_price"] = prices["input_price"]
-            if config.cache_creation_token_price is None and prices.get("cache_creation_price") is not None:
-                overrides["cache_creation_token_price"] = prices["cache_creation_price"]
-            if config.cache_read_token_price is None and prices.get("cache_read_price") is not None:
-                overrides["cache_read_token_price"] = prices["cache_read_price"]
-            if config.output_token_price is None and prices.get("output_price") is not None:
-                overrides["output_token_price"] = prices["output_price"]
-            if overrides:
-                config = dataclasses.replace(config, **overrides)
+            if prices.get("token_price_tiers"):
+                config = dataclasses.replace(
+                    config,
+                    token_price_tiers=prices["token_price_tiers"],
+                    input_token_price=None,
+                    cache_creation_token_price=None,
+                    cache_read_token_price=None,
+                    output_token_price=None,
+                )
                 logging.getLogger(__name__).info(
-                    "Auto-filled pricing from OpenRouter for model %s: %s",
-                    config.model, overrides,
+                    "Auto-filled tiered pricing from OpenRouter for model %s",
+                    config.model,
+                )
+            else:
+                config = dataclasses.replace(
+                    config,
+                    input_token_price=prices.get("input_price"),
+                    cache_creation_token_price=prices.get("cache_creation_price"),
+                    cache_read_token_price=prices.get("cache_read_price"),
+                    output_token_price=prices.get("output_price"),
+                )
+                logging.getLogger(__name__).info(
+                    "Auto-filled scalar pricing from OpenRouter for model %s",
+                    config.model,
                 )
 
     return config
+
+
+def _confirm_missing_pricing_if_headless(
+    args: argparse.Namespace,
+    config: Config,
+) -> None:
+    if has_billable_pricing(config) or _will_use_tui(args):
+        return
+
+    message = missing_pricing_message(config.model)
+    if not sys.stdin.isatty():
+        raise SystemExit(
+            message
+            + "\n\nCannot ask for confirmation because stdin is not interactive. "
+            "Run in a terminal or add token pricing to the run script."
+        )
+
+    print("\n" + message, file=sys.stderr)
+    answer = input("Continue without live cost tracking? [y/N] ").strip().lower()
+    if answer not in {"y", "yes"}:
+        raise SystemExit("Run cancelled: missing token pricing.")
+    print(
+        "Continuing without live token cost tracking; cost will display as N/A.",
+        file=sys.stderr,
+    )
+
+
+def _will_use_tui(args: argparse.Namespace) -> bool:
+    return sys.stdout.isatty() and not args.no_tui
 
 
 def _setup_docker_container(config: Config) -> None:

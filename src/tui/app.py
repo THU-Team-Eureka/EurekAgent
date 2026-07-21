@@ -29,6 +29,7 @@ from ..runtime import (
     set_token_tracker,
     set_user_message_queue,
 )
+from ..pricing import has_billable_pricing, missing_pricing_message
 from ..token_tracker import (
     TokenTracker, cost_stats, format_cost, format_token_count, hydrate_tracker_from_run,
     scan_jsonl_usage_since,
@@ -36,6 +37,7 @@ from ..token_tracker import (
 from .screens.overview import OverviewScreen
 from .screens.session import SessionScreen
 from .widgets.logo import LogoBanner
+from .widgets.missing_pricing_dialog import MissingPricingDialog
 from .widgets.resume_extra_time_dialog import ResumeExtraTimeDialog
 
 log = logging.getLogger(__name__)
@@ -160,6 +162,16 @@ class EurekAgentApp(App):
         """Switch to overview and launch the pipeline as a background task."""
         try:
             self.push_screen("overview")
+            if not has_billable_pricing(self._config):
+                should_continue = await self.push_screen_wait(
+                    MissingPricingDialog(missing_pricing_message(self._config.model))
+                )
+                if not should_continue:
+                    self.exit(
+                        return_code=0,
+                        message="Run cancelled: missing token pricing.",
+                    )
+                    return
             # Create the token tracker here and register it as the global
             # singleton so both the TUI and pipeline share the same instance.
             # Without this, the pipeline creates its own empty tracker whose

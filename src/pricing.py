@@ -7,8 +7,11 @@ import logging
 import os
 import time
 from pathlib import Path
+from typing import Any
 from urllib.request import urlopen, Request
 from urllib.error import URLError
+
+from .config import Config
 
 log = logging.getLogger(__name__)
 
@@ -18,6 +21,7 @@ _CACHE_TTL_SECONDS = 24 * 60 * 60
 _OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
 _MILLION = 1_000_000
 _PREFIX = ["anthropic/", "openai/", "google/", "meta/", "z-ai/", "deepseek/", "moonshotai/", "minimax/", "x-ai/"]
+
 
 def resolve_model_name(cli_model: str | None) -> str | None:
     """Return the model name from CLI arg or env var fallback."""
@@ -32,9 +36,9 @@ def resolve_model_name(cli_model: str | None) -> str | None:
 def fetch_model_pricing(model_id: str) -> dict | None:
     """Fetch pricing for *model_id* from OpenRouter (with local cache).
 
-    Returns a dict with keys ``input_price``, ``cache_creation_price``,
-    ``cache_read_price``, ``output_price`` (all per 1M tokens, float),
-    or ``None`` on failure.
+    Returns either ``{"token_price_tiers": [...]}`` or scalar keys
+    ``input_price``, ``cache_creation_price``, ``cache_read_price``,
+    ``output_price`` (all per 1M tokens, float), or ``None`` on failure.
     """
     data = _load_models_data()
     if data is None:
@@ -73,46 +77,209 @@ def fetch_model_pricing(model_id: str) -> dict | None:
         log.warning("Model %r not found in OpenRouter pricing data", model_id)
         return None
 
-    pricing = model_info.get("pricing", {})
-    result = _extract_prices(pricing)
-    log.info(
-        "Resolved pricing for %s: input=%.4f cache_create=%.4f cache_read=%.4f output=%.4f (per 1M tokens)",
-        model_info.get("id", model_id),
-        result["input_price"] or 0,
-        result["cache_creation_price"] or 0,
-        result["cache_read_price"] or 0,
-        result["output_price"] or 0,
-    )
+    result = _extract_openrouter_pricing(model_info.get("pricing", {}))
+    if result is None:
+        log.warning("Model %r has incomplete OpenRouter pricing data", model_id)
+        return None
+
+    if result.get("token_price_tiers"):
+        log.info(
+            "Resolved tiered pricing for %s: %d tiers",
+            model_info.get("id", model_id),
+            len(result["token_price_tiers"]),
+        )
+    else:
+        log.info(
+            "Resolved pricing for %s: input=%.4f cache_create=%.4f cache_read=%.4f output=%.4f (per 1M tokens)",
+            model_info.get("id", model_id),
+            result["input_price"] or 0,
+            result["cache_creation_price"] or 0,
+            result["cache_read_price"] or 0,
+            result["output_price"] or 0,
+        )
     return result
 
 
-def _extract_prices(pricing: dict) -> dict:
-    """Convert OpenRouter per-token string prices to per-1M-token floats."""
-    prompt = _parse_price(pricing.get("prompt", "0"))
-    completion = _parse_price(pricing.get("completion", "0"))
-    # OpenRouter uses "input_cache_write" / "input_cache_read" for cache pricing
-    cache_creation = _parse_price(
-        pricing.get("input_cache_write") or pricing.get("cache_creation", "")
-    )
-    cache_read = _parse_price(
-        pricing.get("input_cache_read") or pricing.get("cache_read", "")
-    )
+def has_billable_pricing(config: Config) -> bool:
+    """Return True when input+output prices are known."""
+    if config.token_price_tiers:
+        return bool(normalize_token_price_tiers(config.token_price_tiers))
+    return config.input_token_price is not None and config.output_token_price is not None
 
-    # Fallbacks when cache fields are missing
-    if cache_creation is None:
-        cache_creation = prompt
-    if cache_read is None:
-        cache_read = round(prompt * 0.1, 8) if prompt is not None else None
 
+def normalize_token_price_tiers(tiers: Any) -> list[dict[str, float | int | None]] | None:
+    """Normalize tier fields to input/output/cache_read/cache_creation."""
+    if not isinstance(tiers, list) or not tiers:
+        return None
+
+    normalized: list[dict[str, float | int | None]] = []
+    previous_max = -1
+    saw_open_ended = False
+    for tier in tiers:
+        if not isinstance(tier, dict):
+            return None
+        max_context = tier.get("max_context_tokens")
+        if max_context is None:
+            normalized_max: int | None = None
+            saw_open_ended = True
+        elif isinstance(max_context, int) and max_context > previous_max:
+            normalized_max = max_context
+            previous_max = max_context
+        else:
+            return None
+
+        input_price = _coerce_price(tier.get("input"))
+        output_price = _coerce_price(tier.get("output"))
+        if input_price is None or output_price is None:
+            return None
+        cache_read = _coerce_price(tier.get("cache_read"))
+        cache_creation = _coerce_price(tier.get("cache_creation"))
+        normalized.append(
+            {
+                "max_context_tokens": normalized_max,
+                "input": input_price,
+                "output": output_price,
+                "cache_read": input_price if cache_read is None else cache_read,
+                "cache_creation": input_price if cache_creation is None else cache_creation,
+            }
+        )
+
+    if not saw_open_ended or normalized[-1]["max_context_tokens"] is not None:
+        return None
+    return normalized
+
+
+def normalize_scalar_pricing(
+    *,
+    input_price: float | None,
+    output_price: float | None,
+    cache_read_price: float | None = None,
+    cache_creation_price: float | None = None,
+) -> dict[str, float] | None:
+    """Normalize scalar fields to input/output/cache_read/cache_creation."""
+    input_value = _coerce_price(input_price)
+    output_value = _coerce_price(output_price)
+    if input_value is None or output_value is None:
+        return None
+    cache_read = _coerce_price(cache_read_price)
+    cache_creation = _coerce_price(cache_creation_price)
     return {
-        "input_price": prompt,
-        "cache_creation_price": cache_creation,
-        "cache_read_price": cache_read,
-        "output_price": completion,
+        "input": input_value,
+        "output": output_value,
+        "cache_read": input_value if cache_read is None else cache_read,
+        "cache_creation": input_value if cache_creation is None else cache_creation,
     }
 
 
-def _parse_price(value: str) -> float | None:
+def missing_pricing_message(model: str | None) -> str:
+    model_label = model or "the selected model"
+    return (
+        "EurekAgent could not resolve both input and output token prices for "
+        f"{model_label}.\n"
+        "Live token/cost display will show N/A if you continue.\n\n"
+        "Recommended: exit and add token pricing to your run script:\n"
+        "  Scalar pricing:\n"
+        "    --input-token-price <per-1M> --output-token-price <per-1M>\n"
+        "    [--cache-read-token-price <per-1M>]\n"
+        "    [--cache-creation-token-price <per-1M>]\n"
+        "  Tiered pricing:\n"
+        "    --token-price-tiers '[{\"max_context_tokens\":32768,\"input\":...,"
+        "\"output\":...,\"cache_read\":...,\"cache_creation\":...},"
+        "{\"max_context_tokens\":null,...}]'"
+    )
+
+
+def _extract_openrouter_pricing(pricing: Any) -> dict | None:
+    if not isinstance(pricing, dict):
+        return None
+
+    tiers = _extract_openrouter_tiers(pricing)
+    if tiers:
+        return {"token_price_tiers": tiers}
+
+    scalar = _openrouter_price_fields(pricing)
+    normalized = normalize_scalar_pricing(
+        input_price=scalar.get("input"),
+        output_price=scalar.get("output"),
+        cache_read_price=scalar.get("cache_read"),
+        cache_creation_price=scalar.get("cache_creation"),
+    )
+    if normalized is None:
+        return None
+    return {
+        "input_price": normalized["input"],
+        "cache_creation_price": normalized["cache_creation"],
+        "cache_read_price": normalized["cache_read"],
+        "output_price": normalized["output"],
+    }
+
+
+def _extract_openrouter_tiers(
+    pricing: dict,
+) -> list[dict[str, float | int | None]] | None:
+    overrides = pricing.get("overrides")
+    if not isinstance(overrides, list) or not overrides:
+        return None
+
+    ordered = [
+        override
+        for override in overrides
+        if (
+            isinstance(override, dict)
+            and isinstance(override.get("min_prompt_tokens"), int)
+        )
+    ]
+    ordered.sort(key=lambda override: override["min_prompt_tokens"])
+    if not ordered:
+        return None
+
+    tiers: list[dict[str, float | int | None]] = []
+    current = _openrouter_price_fields(pricing)
+    first_min = int(ordered[0]["min_prompt_tokens"])
+    tiers.append({"max_context_tokens": first_min, **current})
+
+    for index, override in enumerate(ordered):
+        current = {
+            **current,
+            **_openrouter_price_fields(override, include_missing=False),
+        }
+        next_max = (
+            int(ordered[index + 1]["min_prompt_tokens"])
+            if index + 1 < len(ordered)
+            else None
+        )
+        tiers.append({"max_context_tokens": next_max, **current})
+
+    return normalize_token_price_tiers(tiers)
+
+
+def _openrouter_price_fields(
+    pricing: dict,
+    *,
+    include_missing: bool = True,
+) -> dict[str, float | None]:
+    fields = {
+        "input": _parse_price(pricing.get("prompt")),
+        "output": _parse_price(pricing.get("completion")),
+        "cache_read": _parse_price(
+            pricing.get("input_cache_read") or pricing.get("cache_read")
+        ),
+        "cache_creation": _parse_price(
+            pricing.get("input_cache_write") or pricing.get("cache_creation")
+        ),
+    }
+    if include_missing:
+        return fields
+    return {key: value for key, value in fields.items() if value is not None}
+
+
+def _coerce_price(value: Any) -> float | None:
+    if not isinstance(value, (int, float)) or value < 0:
+        return None
+    return float(value)
+
+
+def _parse_price(value: Any) -> float | None:
     """Parse a per-token price string to a per-1M-token float. None if empty."""
     if not value:
         return None

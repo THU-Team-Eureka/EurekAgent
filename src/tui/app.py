@@ -492,6 +492,9 @@ class EurekAgentApp(App):
             if dedup_key:
                 self._subagent_event_seen.add(dedup_key)
 
+        if event_type == "result" and event_data.get("_synthetic_turn_end"):
+            return
+
         text = self._format_event(event_type, event_data, session_key)
         if not text:
             return

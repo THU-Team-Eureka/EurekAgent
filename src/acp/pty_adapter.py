@@ -68,6 +68,43 @@ _RESUME_PROMPT = (
 )
 
 
+def _assistant_stop_kind(message: dict) -> str:
+    """Return normalized assistant stop semantics across model backends."""
+    content = message.get("content", [])
+    if isinstance(content, list) and any(
+        isinstance(block, dict) and block.get("type") == "tool_use"
+        for block in content
+    ):
+        return "tool_use"
+
+    stop_reason = message.get("stop_reason")
+    if stop_reason == "end_turn":
+        return "turn_end"
+    if stop_reason in ("stop_sequence", "max_tokens"):
+        return "recoverable_stop"
+    return "streaming"
+
+
+def _synthetic_turn_end_event(event: SessionEvent, message: dict) -> SessionEvent:
+    """Build a PTY-only turn-end event used for idle detection, not UI status."""
+    content = message.get("content", [])
+    texts = [
+        c.get("text", "")
+        for c in content
+        if isinstance(c, dict) and c.get("type") == "text"
+    ] if isinstance(content, list) else []
+    return SessionEvent(
+        type="result",
+        data={
+            "type": "result",
+            "result": "\n".join(texts),
+            "session_id": event.data.get("session_id", ""),
+            "_synthetic_turn_end": True,
+        },
+        timestamp=time.time(),
+    )
+
+
 class PtyAdapter:
     """Spawns Claude Code in interactive mode via PTY, tails JSONL for events."""
 
@@ -252,7 +289,7 @@ class PtyAdapter:
 
         The stream ends when either:
         - The process exits (killed by timeout or explicit :meth:`stop`)
-        - The agent finished its turn (``stop_reason == "end_turn"``) and
+        - The agent finished a non-tool turn and
           then stayed idle for ``_END_DETECTION_IDLE`` seconds
         - A non-end stop (``stop_sequence`` / ``max_tokens``) occurs and
           recovery budget is exhausted, then idle for ``_END_DETECTION_IDLE``
@@ -293,15 +330,16 @@ class PtyAdapter:
                     msg = event.data.get("message", {})
                     if not isinstance(msg, dict):
                         continue
-                    sr = msg.get("stop_reason")
-                    if sr == "end_turn":
+                    stop_kind = _assistant_stop_kind(msg)
+                    if stop_kind == "turn_end":
                         saw_end_turn = True
                         # A clean end_turn means whatever recovery streak
                         # we were tracking is over; reset so unrelated
                         # later failures don't accumulate against it.
                         _consecutive_type = ""
                         _consecutive_count = 0
-                    elif sr in ("stop_sequence", "max_tokens"):
+                    elif stop_kind == "recoverable_stop":
+                        sr = msg.get("stop_reason")
                         msg = event.data.get("message", {})
                         is_api_err = bool(event.data.get("isApiErrorMessage", False))
                         api_err_val = (msg.get("apiError") if isinstance(msg, dict) else "") or ""
@@ -458,6 +496,10 @@ class PtyAdapter:
                             "ending stream",
                             session_key,
                         )
+                    if saw_end_turn and self._persist_flags.get(session_key):
+                        last_event_time = time.monotonic()
+                        saw_end_turn = False
+                        continue
                     return
 
             # Check if the stage was externally marked complete (e.g. /skip-prepare
@@ -797,26 +839,8 @@ class PtyAdapter:
             result.append(event)
             if event.type == "assistant":
                 msg = event.data.get("message", {})
-                sr = msg.get("stop_reason")
-                if sr == "end_turn":
-                    content = msg.get("content", [])
-                    texts = [
-                        c.get("text", "")
-                        for c in content
-                        if isinstance(c, dict) and c.get("type") == "text"
-                    ]
-                    result_text = "\n".join(texts) if texts else ""
-                    result.append(
-                        SessionEvent(
-                            type="result",
-                            data={
-                                "type": "result",
-                                "result": result_text,
-                                "session_id": event.data.get("session_id", ""),
-                            },
-                            timestamp=time.time(),
-                        )
-                    )
+                if _assistant_stop_kind(msg) == "turn_end":
+                    result.append(_synthetic_turn_end_event(event, msg))
         return result
 
     def _write_log(self, session_key: str, data: dict) -> None:

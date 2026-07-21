@@ -26,7 +26,16 @@ from typing import AsyncIterator
 
 from ..acp.stream_adapter import StreamAdapter
 from ..acp.protocol import SessionEvent, SessionRequest
-from ..acp.pty_adapter import PtyAdapter, _POST_INTERRUPT_DELAY, _POLL_INTERVAL, _END_DETECTION_IDLE, _TUI_RENDER_DELAY, _RESUME_PROMPT
+from ..acp.pty_adapter import (
+    PtyAdapter,
+    _assistant_stop_kind,
+    _synthetic_turn_end_event,
+    _POST_INTERRUPT_DELAY,
+    _POLL_INTERVAL,
+    _END_DETECTION_IDLE,
+    _TUI_RENDER_DELAY,
+    _RESUME_PROMPT,
+)
 from .container import DockerContainer
 
 log = logging.getLogger(__name__)
@@ -393,14 +402,15 @@ class DockerPtyAdapter(PtyAdapter):
                     saw_end_turn = False
                 yield event
                 # Interactive mode does not emit a "result" JSONL event.
-                # Synthesize one from an assistant message with
-                # stop_reason == "end_turn" so the idle detector fires.
+                # Synthesize an internal turn-end event only for non-tool
+                # turns so the idle detector fires without treating tool
+                # requests as completed sessions.
                 if event.type == "assistant":
                     msg = event.data.get("message", {})
                     if not isinstance(msg, dict):
                         continue
-                    sr = msg.get("stop_reason")
-                    if sr == "end_turn":
+                    stop_kind = _assistant_stop_kind(msg)
+                    if stop_kind == "turn_end":
                         saw_end_turn = True
                         last_event_time = time.monotonic()
                         # A clean end_turn means whatever recovery streak
@@ -408,20 +418,9 @@ class DockerPtyAdapter(PtyAdapter):
                         # later failures don't accumulate against it.
                         _consecutive_type = ""
                         _consecutive_count = 0
-                        yield SessionEvent(
-                            type="result",
-                            data={
-                                "type": "result",
-                                "result": "\n".join(
-                                    c.get("text", "")
-                                    for c in msg.get("content", [])
-                                    if isinstance(c, dict) and c.get("type") == "text"
-                                ),
-                                "session_id": event.data.get("session_id", ""),
-                            },
-                            timestamp=time.time(),
-                        )
-                    elif sr in ("stop_sequence", "max_tokens"):
+                        yield _synthetic_turn_end_event(event, msg)
+                    elif stop_kind == "recoverable_stop":
+                        sr = msg.get("stop_reason")
                         # Recovery B: auto-recover from API errors / truncation.
                         msg_data = event.data.get("message", {})
                         is_api_err = bool(event.data.get("isApiErrorMessage", False))
@@ -644,6 +643,10 @@ class DockerPtyAdapter(PtyAdapter):
                             "ending stream",
                             session_key,
                         )
+                    if saw_end_turn and self._persist_flags.get(session_key):
+                        last_event_time = time.monotonic()
+                        saw_end_turn = False
+                        continue
                     return
 
             # Check if the stage was externally marked complete (e.g. /skip-prepare

@@ -156,9 +156,13 @@ class DockerContainer:
         run_config = agent_home / ".claude.json"
         if host_config.is_file():
             shutil.copy2(host_config, run_config)
-            # Register /workspace as a trusted project so Claude's interactive
-            # mode skips the workspace-trust dialog inside the container.
-            _inject_workspace_trust(run_config)
+        else:
+            run_config.write_text("{}\n", encoding="utf-8")
+        # Register /workspace as a trusted project so Claude's interactive
+        # mode skips the workspace-trust dialog inside the container. Also
+        # disable auto-updates in the per-run config so agent sessions do not
+        # mutate their CLI version mid-run.
+        _prepare_claude_config(run_config)
 
         host_gitconfig = Path.home() / ".gitconfig"
         if host_gitconfig.is_file():
@@ -651,19 +655,25 @@ class DockerContainer:
 
 
 
-def _inject_workspace_trust(config_path: Path) -> None:
-    """Add /workspace as a trusted project in .claude.json.
+def _prepare_claude_config(config_path: Path) -> None:
+    """Apply per-run Claude Code config needed for stable container sessions.
 
     Claude Code's interactive mode shows a workspace-trust dialog when
     starting in an unrecognised directory.  Inside a Docker container the
     CWD is /workspace, so we pre-register it as a known project with
     ``hasTrustDialogAccepted: true`` to skip the dialog.
+
+    Auto-updates are disabled in the writable per-run copy to prevent long
+    experiments from changing Claude Code versions while running.
     """
     try:
         data = json.loads(config_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError:
+        data = {}
+    except OSError:
         return
 
+    data["autoUpdates"] = False
     projects = data.setdefault("projects", {})
     projects.setdefault("/workspace", {
         "allowedTools": [],

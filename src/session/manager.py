@@ -223,8 +223,8 @@ class SessionManager:
         """Sleep until 5 minutes before deadline, then inject a warning prompt.
 
         Skips the warning if completion_check indicates the deliverable already
-        exists. Uses adapter.interrupt() + adapter.send() so the agent stops
-        its current work and processes the warning immediately.
+        exists. PTY adapters provide an atomic interrupt+send operation so this
+        write cannot interleave with a user message.
         """
         warn_time = deadline - _WARN_THRESHOLD_SECONDS
         delay = max(0.0, warn_time - time.time())
@@ -238,8 +238,12 @@ class SessionManager:
             return
         log.warning("Session %s: 5-minute warning, injecting prompt", session_key)
         try:
-            await self._adapter.interrupt(session_key)
-            await self._adapter.send(session_key, warning_prompt)
+            interrupt_and_send = getattr(self._adapter, "interrupt_and_send", None)
+            if interrupt_and_send is not None:
+                await interrupt_and_send(session_key, warning_prompt)
+            else:
+                await self._adapter.interrupt(session_key)
+                await self._adapter.send(session_key, warning_prompt)
         except Exception:
             log.warning("Session %s: failed to inject time warning", session_key, exc_info=True)
 

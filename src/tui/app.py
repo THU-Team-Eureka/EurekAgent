@@ -299,12 +299,10 @@ class EurekAgentApp(App):
             if overview is not None:
                 overview.append_event(display)
 
-            # PTY mode: interrupt current generation first so the agent
-            # stops what it's doing and processes the new message.
+            # PTY mode uses a single adapter operation so Ctrl+C + paste is
+            # serialized and the human turn is confirmed in the transcript.
             # ACP mode: send() does kill-and-resume internally.
             is_pty = isinstance(adapter, PtyAdapter)
-            if is_pty:
-                await adapter.interrupt(session_key)
 
             # Push a synthetic event so the TUI shows feedback immediately.
             # ACP mode says "Resuming session" (kill+resume takes 30-60s);
@@ -315,7 +313,10 @@ class EurekAgentApp(App):
                 push_session_sending_event(session_key)
 
             try:
-                await adapter.send(session_key, text)
+                if is_pty:
+                    await adapter.interrupt_and_send_user_message(session_key, text)
+                else:
+                    await adapter.send(session_key, text)
                 # If the user answered a prepare-stage question, delete
                 # question.json so the adapter's pause_check resumes and
                 # the _monitor_questions loop can proceed.
@@ -326,8 +327,8 @@ class EurekAgentApp(App):
                     except OSError:
                         pass
             except RuntimeError as exc:
-                # Session no longer running — surface to user without crashing.
-                log.warning("adapter.send rejected for %s: %s", session_key, exc)
+                # Surface delivery failures without crashing the TUI consumer.
+                log.warning("message delivery failed for %s: %s", session_key, exc)
                 overview = self._get_overview_screen()
                 if overview is not None:
                     overview.append_event(

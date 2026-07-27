@@ -46,6 +46,7 @@ _TUI_RENDER_DELAY = 2.0
 # message lands in a component that is not ready to accept input and is
 # silently dropped.
 _POST_INTERRUPT_DELAY = 0.5
+_USER_MESSAGE_DELIVERY_TIMEOUT = 10.0
 # Size of each read when continuously draining the PTY master fd during
 # the session. The child's Ink TUI redraws produce large bursts of ANSI
 # sequences; if we do not read them, the kernel PTY buffer (typically
@@ -133,6 +134,7 @@ class PtyAdapter:
         self._pause_fired: set[str] = set()
         self._session_is_resume: dict[str, bool] = {}
         self._recovery_abort_reasons: dict[str, str] = {}
+        self._io_locks: dict[str, asyncio.Lock] = {}
 
     # ------------------------------------------------------------------
     # Public API (same interface as StreamAdapter)
@@ -259,12 +261,73 @@ class PtyAdapter:
         kill-and-resume needed.  The caller (TUI) should call
         ``interrupt()`` first if the agent is currently generating.
         """
+        async with self._io_lock(session_key):
+            await self._send_unlocked(session_key, message)
+
+    async def interrupt(self, session_key: str) -> None:
+        """Interrupt the current generation (Ctrl+C) without killing the process."""
+        async with self._io_lock(session_key):
+            await self._interrupt_unlocked(session_key)
+
+    async def interrupt_and_send_user_message(
+        self,
+        session_key: str,
+        message: str,
+        *,
+        delivery_timeout: float = _USER_MESSAGE_DELIVERY_TIMEOUT,
+    ) -> None:
+        """Interrupt a running PTY session and confirm the user's turn landed.
+
+        This is intentionally narrower than general recovery: it is used for
+        explicit TUI user messages, where silently dropping the input is worse
+        than surfacing a delivery failure. Confirmation is based on the engine
+        transcript/log receiving the exact human message.
+        """
+        if await self._interrupt_send_once(session_key, message, delivery_timeout):
+            return
+        log.warning(
+            "Session %s: user message not confirmed after %.1fs; retrying",
+            session_key,
+            delivery_timeout,
+        )
+        if await self._interrupt_send_once(session_key, message, delivery_timeout):
+            return
+        raise RuntimeError("message delivery was not confirmed in the transcript")
+
+    async def interrupt_and_send(self, session_key: str, message: str) -> None:
+        """Interrupt and send without transcript confirmation.
+
+        Used for system-generated nudges such as time warnings, where there is
+        no human-facing delivery guarantee to report.
+        """
+        async with self._io_lock(session_key):
+            await self._interrupt_unlocked(session_key)
+            await self._send_unlocked(session_key, message)
+
+    async def _interrupt_send_once(
+        self,
+        session_key: str,
+        message: str,
+        delivery_timeout: float,
+    ) -> bool:
+        async with self._io_lock(session_key):
+            offset = self._delivery_log_offset(session_key)
+            await self._interrupt_unlocked(session_key)
+            await self._send_unlocked(session_key, message)
+        return await self._wait_for_user_message(
+            session_key,
+            message,
+            offset,
+            timeout=delivery_timeout,
+        )
+
+    async def _send_unlocked(self, session_key: str, message: str) -> None:
         fd = self._master_fds.get(session_key)
         if fd is None:
             raise RuntimeError(f"Session {session_key} has no PTY master fd")
         self._write_pty(fd, message + "\r")
 
-    async def interrupt(self, session_key: str) -> None:
+    async def _interrupt_unlocked(self, session_key: str) -> None:
         """Interrupt the current generation (Ctrl+C) without killing the process.
 
         After writing Ctrl+C we must wait for Claude's Ink TUI to
@@ -643,6 +706,72 @@ class PtyAdapter:
     # Private internals
     # ------------------------------------------------------------------
 
+    def _io_lock(self, session_key: str) -> asyncio.Lock:
+        lock = self._io_locks.get(session_key)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._io_locks[session_key] = lock
+        return lock
+
+    def _delivery_log_offset(self, session_key: str) -> int:
+        path = self._log_path_for(session_key)
+        try:
+            return path.stat().st_size
+        except OSError:
+            return 0
+
+    async def _wait_for_user_message(
+        self,
+        session_key: str,
+        message: str,
+        offset: int,
+        *,
+        timeout: float,
+    ) -> bool:
+        """Wait until the transcript records the exact human message."""
+        deadline = time.monotonic() + timeout
+        path = self._log_path_for(session_key)
+        cursor = offset
+        while time.monotonic() < deadline:
+            try:
+                with open(path, "r", encoding="utf-8") as handle:
+                    handle.seek(cursor)
+                    for line in handle:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            data = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if self._is_user_message(data, message):
+                            return True
+                    cursor = handle.tell()
+            except OSError:
+                pass
+            await asyncio.sleep(0.25)
+        return False
+
+    @staticmethod
+    def _is_user_message(data: dict, message: str) -> bool:
+        if data.get("type") != "user":
+            return False
+        payload = data.get("message", {})
+        if not isinstance(payload, dict):
+            return False
+        content = payload.get("content")
+        if isinstance(content, str):
+            return content.strip() == message.strip()
+        if isinstance(content, list):
+            for block in content:
+                if (
+                    isinstance(block, dict)
+                    and block.get("type") == "text"
+                    and str(block.get("text", "")).strip() == message.strip()
+                ):
+                    return True
+        return False
+
     @staticmethod
     def _write_pty(fd: int, data: str) -> None:
         """Write user input to the PTY master, wrapping in bracketed-paste.
@@ -901,6 +1030,7 @@ class PtyAdapter:
         self._pause_checks.pop(session_key, None)
         self._on_pause.pop(session_key, None)
         self._pause_fired.discard(session_key)
+        self._io_locks.pop(session_key, None)
         fd = self._master_fds.pop(session_key, None)
         if fd is not None:
             try:

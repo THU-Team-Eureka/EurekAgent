@@ -303,7 +303,7 @@ class DockerPtyAdapter(PtyAdapter):
             "for the underlying CLI error."
         )
 
-    async def send(self, session_key: str, message: str) -> None:
+    async def _send_unlocked(self, session_key: str, message: str) -> None:
         """Write a follow-up message to the interactive session.
 
         The caller (TUI) should call ``interrupt()`` first if the agent is
@@ -317,7 +317,7 @@ class DockerPtyAdapter(PtyAdapter):
         process.stdin.write(write_msg.encode())
         await process.stdin.drain()
 
-    async def interrupt(self, session_key: str) -> None:
+    async def _interrupt_unlocked(self, session_key: str) -> None:
 
         process = self._sessions.get(session_key)
         if process is None or process.returncode is not None:

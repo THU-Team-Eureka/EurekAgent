@@ -266,7 +266,7 @@ async def propose_node(state: LoopState) -> dict:
         write_pipeline_state(
             current_loop_index=loop_index,
             current_stage="propose",
-            pipeline_status="running",
+            pipeline_status=status if status == "abort" else "running",
         )
         return {
             "loop_index": loop_index,
@@ -418,7 +418,7 @@ async def propose_node(state: LoopState) -> dict:
     write_pipeline_state(
         current_loop_index=loop_index,
         current_stage="propose",
-        pipeline_status="running",
+        pipeline_status=status if status == "abort" else "running",
     )
 
     return {

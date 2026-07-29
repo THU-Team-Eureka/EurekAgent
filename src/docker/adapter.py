@@ -470,10 +470,11 @@ class DockerPtyAdapter(PtyAdapter):
                                 session_key, sr, budget_str,
                             )
                             await asyncio.sleep(_RECOVERY_DELAY)
-                            await self.send(
+                            if not await self._send_recovery(
                                 session_key,
                                 "Please continue from where you left off.",
-                            )
+                            ):
+                                return
                             turn_recoveries += 1
                             saw_non_end_stop = False
                             saw_end_turn = False
@@ -500,7 +501,8 @@ class DockerPtyAdapter(PtyAdapter):
                     # to re-send it after dismissing the selector.
                     prompt = self._pending_prompts.get(session_key, "")
                     if prompt:
-                        await self.send(session_key, prompt)
+                        if not await self._send_recovery(session_key, prompt):
+                            return
                     recovery_done = True
 
             # Recovery C: pty_output blocker detected (permission/mode dialog).
@@ -525,12 +527,14 @@ class DockerPtyAdapter(PtyAdapter):
                     # be active again.
                     prompt = self._pending_prompts.get(session_key, "")
                     if prompt:
-                        await self.send(session_key, prompt)
+                        if not await self._send_recovery(session_key, prompt):
+                            return
                 else:
-                    await self.send(
+                    if not await self._send_recovery(
                         session_key,
                         "Please continue from where you left off.",
-                    )
+                    ):
+                        return
                 turn_recoveries += 1
                 saw_non_end_stop = False
                 saw_end_turn = False
@@ -559,10 +563,11 @@ class DockerPtyAdapter(PtyAdapter):
                                 "sending continue %s",
                                 session_key, idle, budget_str,
                             )
-                            await self.send(
+                            if not await self._send_recovery(
                                 session_key,
                                 "Please continue from where you left off.",
-                            )
+                            ):
+                                return
                             last_event_time = time.monotonic()
                             turn_recoveries += 1
                             saw_non_end_stop = False
@@ -618,13 +623,14 @@ class DockerPtyAdapter(PtyAdapter):
                                 "produced, sending continue %s",
                                 session_key, budget_str,
                             )
-                            await self.send(
+                            if not await self._send_recovery(
                                 session_key,
                                 "Continue with your task. You have not yet "
                                 "produced the required output files. If you "
                                 "were summarizing or researching, proceed to "
                                 "writing the deliverables now.",
-                            )
+                            ):
+                                return
                             turn_recoveries += 1
                             saw_end_turn = False
                             saw_non_end_stop = False
@@ -778,6 +784,25 @@ class DockerPtyAdapter(PtyAdapter):
                 continue
 
             self._handle_proxy_event(session_key, data)
+
+    async def _send_recovery(self, session_key: str, message: str) -> bool:
+        """Best-effort recovery send.
+
+        Timeout/cost killers can stop the PTY while stream() is deciding to
+        send a continue prompt. That is normal shutdown, not a pipeline error;
+        return False so the stream ends and the node can validate artifacts.
+        """
+        if not await self.is_alive(session_key):
+            log.info("Session %s: recovery skipped; session is not running", session_key)
+            return False
+        try:
+            await self.send(session_key, message)
+            return True
+        except RuntimeError as exc:
+            if "not running" in str(exc):
+                log.info("Session %s: recovery skipped; %s", session_key, exc)
+                return False
+            raise
 
     # Patterns that indicate a startup dialog is blocking input.
     _BLOCKER_PATTERNS = (

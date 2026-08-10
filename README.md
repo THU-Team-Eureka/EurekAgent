@@ -35,7 +35,7 @@
 <a id="overview"></a>
 ## 🔍 Overview
 
-We present **EurekAgent**, an agent system for metric-driven autonomous scientific discovery. Define your problem and evaluation criteria — EurekAgent coordinates off-the-shelf CLI agents to propose diverse approaches, implement them, run experiments, and iterate. Human intervention is optional but supported at every step. 
+We present **EurekAgent**, an agent system for metric-driven autonomous scientific discovery. Define your problem and evaluation criteria — EurekAgent coordinates off-the-shelf CLI agents (i.e. Claude Code) to propose diverse approaches, implement them, run experiments, and iterate in loops. Human intervention is optional but supported at every step. 
 
 https://github.com/user-attachments/assets/c5b45b20-7eec-454e-98c3-6880bcec878b
 

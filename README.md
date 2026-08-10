@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  Define your problem and evaluation criteria — EurekAgent coordinates off-the-shelf CLI agents to <strong>propose</strong> diverse approaches, <strong>implement</strong> them, <strong>run experiments</strong>, and <strong>iterate</strong>. Human intervention is optional but supported at every step.
+  Define your problem and evaluation criteria — EurekAgent coordinates off-the-shelf CLI agents (i.e. Claude Code) to <strong>propose</strong> diverse approaches, <strong>implement</strong> them, <strong>run experiments</strong>, and <strong>iterate</strong> in loops. Human intervention is optional but supported at every step.
 </p>
 
 <p align="center">
